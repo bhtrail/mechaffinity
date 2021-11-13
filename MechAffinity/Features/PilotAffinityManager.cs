@@ -352,6 +352,24 @@ namespace MechAffinity
             return Main.settings.defaultDaysBeforeSimDecay;
         }
 
+        private List<string> getPossibleQuirkAffinites(MechDef mech)
+        {
+            List<string> quirks = new List<string>();
+            if (mech.Inventory != null)
+            {
+                foreach (var equipItem in mech.Inventory)
+                {
+                    if (quirkAffinities.ContainsKey(equipItem.ComponentDefID))
+                    {
+                        if (!quirks.Contains(equipItem.ComponentDefID))
+                        {
+                            quirks.Add(equipItem.ComponentDefID);
+                        }
+                    }
+                }
+            }
+            return quirks;
+        }
         private List<string> getPossibleQuirkAffinites(ChassisDef chassis)
         {
             List<string> quirks = new List<string>();
@@ -371,10 +389,10 @@ namespace MechAffinity
             return quirks;
         }
 
-        private List<string> getPossibleQuirkAffinites(MechDef mech)
-        {
-            return getPossibleQuirkAffinites(mech.Chassis);
-        }
+        //private List<string> getPossibleQuirkAffinites(MechDef mech)
+        //{
+        //    return getPossibleQuirkAffinites(mech.Chassis);
+        //}
 
         private List<string> getPossibleQuirkAffinites(AbstractActor actor)
         {
@@ -1268,7 +1286,64 @@ namespace MechAffinity
         
         public string getMechChassisAffinityDescription(MechDef mech)
         {
-            return getMechChassisAffinityDescription(mech.Chassis);
+            string prefab = getPrefabId(mech.Chassis, EIdType.ChassisId);
+            if (!overloads.ContainsKey(prefab))
+            {
+                prefab = getPrefabId(mech.Chassis, EIdType.PrefabId);
+                if (!overloads.ContainsKey(prefab))
+                {
+                    prefab = getPrefabId(mech.Chassis, EIdType.AssemblyVariant);
+                }
+            }
+            string ret = "\n";
+            List<string> levels = new List<string>();
+            Main.modLog.DebugMessage($"Found prefab: {prefab}");
+            if (chassisAffinities.ContainsKey(prefab))
+            {
+                List<AffinityLevel> affinityLevels = chassisAffinities[prefab];
+                foreach (AffinityLevel affinityLevel in affinityLevels)
+                {
+                    if (!levels.Contains(affinityLevel.levelName))
+                    {
+                        levels.Add(affinityLevel.levelName);
+                        Main.modLog.DebugMessage($"adding chassis affinity descriptor for {affinityLevel.levelName}");
+                    }
+                }
+            }
+            if (Main.settings.showQuirks)
+            {
+                List<string> quirks = getPossibleQuirkAffinites(mech);
+                foreach (string quirk in quirks)
+                {
+                    Main.modLog.DebugMessage($"checking for a quirk affinity descriptor for {quirk}");
+                    List<AffinityLevel> affinityLevels = quirkAffinities[quirk];
+                    foreach (AffinityLevel affinityLevel in affinityLevels)
+                    {
+                        if (!levels.Contains(affinityLevel.levelName))
+                        {
+                            levels.Add(affinityLevel.levelName);
+                            Main.modLog.DebugMessage($"adding quirk affinity descriptor for {affinityLevel.levelName}");
+                        }
+                    }
+                }
+            }
+            if (levels.Count() > 0)
+            {
+                ret = "\n<b> Unlockable Affinities: </b>\n\n";
+            }
+            List<DescriptionHolder> descriptors = new List<DescriptionHolder>();
+            foreach (string level in levels)
+            {
+                descriptors.Add(levelDescriptors[level]);
+            }
+            descriptors.Sort();
+            foreach (DescriptionHolder descriptor in descriptors)
+            {
+                ret += descriptor.toString(true);
+            }
+
+            return ret;
+            //return getMechChassisAffinityDescription(mech.Chassis);
         }
 
 
