@@ -282,5 +282,18 @@ namespace MechAffinity.Patches
             return false;
         }
     }
-    
+
+    [HarmonyPatch(typeof(SimGameState), "FirstTimeInitializeDataFromDefs")]
+    public static class SimGameState_FirstTimeInitializeDataFromDefs
+    {
+        public static bool Prepare()
+        {
+            return Main.settings.enablePilotSelect;
+        }
+        public static void Postfix(SimGameState __instance)
+        {
+            PilotRandomizerManager.Instance.setStartingRonin(__instance);
+        }
+    }
+
 }
