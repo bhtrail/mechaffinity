@@ -35,7 +35,10 @@ example:
     "pqArgoMin" : 0.0,
     "pqTooltipTags" : [],
     "enablePilotSelect" : false,
-    "enableMonthlyMoraleReset": false
+    "enableMonthlyMoraleReset": false,
+    "iconColours" : [],
+    "pilotingMitigatesStabilityDmg" : false,
+    "stabilityDmgReductionPerPiloting" : 0.02
 }
 ```
 
@@ -94,6 +97,12 @@ setting value will always be used
 `enablePilotSelect` : when `true` allow set or random ronin to be part of the initial career start pilot roster. you must setup `Pilot Select Settings` in `pilotselectsettings.json` for this to work
 
 `enableMonthlyMoraleReset`: when `true` morale will be reset on the start of each month and then recalculated based on argo upgrades and pilot quirks
+
+`iconColours`: a list of `PilotIconColour` objects
+
+`enableStablePiloting`: when `true` enables 'Stable Piloting' features
+
+`stablePilotingSettings` : settings object for Stable Piloting
 
 ### affinityLevel objects
 
@@ -290,6 +299,20 @@ This type is used to add or remove health from a pilot
 
 - `tooltipText` : the text for the tooltip, Note: a double new line will be automatically added to the end
 
+### PilotIconColour objects
+```json
+{
+  "colour" : "#f21c1c",
+  "tag" : "pilot_rtolegend"
+}
+```
+
+PilotIconColour objects allow you to change the pilot type's background colour to the specified colour, based on tags the pilot has. 
+*Note: if a pilot qualifies for multiple colour's only the first one will be applied*
+
+- `colour`: the colour to set the background to
+- `tag`: the tag the pilot must have to use this colour
+
 ## Giving AI Pilots Affinities
 
 non player pilots can also be setup to recieve affinities. to do this add a pliot tag of `affinityLevel_X` where X is the number of deployments that should be granted to the pilot. pilots with this tag will be able to recieve all affinites (Global, Chassis, Quirk & Tagged) that a player pilot of equal deployments is applicable for
@@ -345,4 +368,45 @@ example list for vanilla pilots:
 `RoninFromList` : the number of ronin to randomly select from the list
 `RandomRonin` : the number of ronin to randomly select from the entire pool of ronin in the game
 `ProceduralPilots`: the number of procedural pilots to generate to fill out the rest of the roster
+
+## Stable Piloting Settings
+
+These settings control the 'Stable Piloting' feature set.
+
+Stable Piloting allows for various modifications to stability damage taken by pilots.
+
+```json
+{
+  "reductionPerPiloting" : 0.02,
+  "increasePerInjury" : 0.05,
+  "InverseMax" : 20,
+  "tagEffects" : []
+}
+```
+
+`reductionPerPiloting`: the reduction of stability damage taken, per point of Piloting of a pilot. default setting is 2% reduction per level.
+`increasePerInjury`: the increase of stability damage taken, per injury on a pilot.
+`InverseMax`: The maximum Piloting skill level to use for Inverse tag effects. default is 20
+`tagEffects`: a list of `PilotTagStabilityEffect` objects
+
+### PilotTagStabilityEffect Objects
+
+These objects define stability reductions or penalties for pilots possessing matching tags. A pilot with multiple matching tags will receive the benefits (or penalties) for all applicable tags.
+
+```json
+{
+  "tag" : "pilot_klutz",
+  "effect": 0.01,
+  "type" : "Piloting"
+}
+```
+
+`tag`: the pilot tag required to apply this effect
+`effect`: the magnitude for this effect. Note that exactly how this is applied is based on the type. a positive value is a penalty (increase in stability damage taken), a negative is a boost (reduction in stability damage taken)
+
+`type`: This determines how `effect` is apllied. Valid values for this field are:
+- `Flat`: the default value, the magnitude of this effect is simply the value of `effect`
+- `Piloting` : the magnitude of this effect is the `effect` value multiplied by the Piloting skill of the pilot.
+- `PilotingInverse` : the magnitude of this effect is the `effect` value multiplied by the `InverseMax` minus the Piloting skill of the pilot. When piloting reaches the Inverse Max or greater, this effect will become 0. This mode is best used to reduce a penalty as Piloting Skill grows.
+
 
