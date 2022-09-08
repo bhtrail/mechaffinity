@@ -33,34 +33,41 @@ namespace MechAffinity
         private static PilotAffinityManager _instance;
         private StatCollection companyStats;
         private Dictionary<string, List<AffinityLevel>> chassisAffinities;
+        private Dictionary<string, List<AffinityLevel>> quirkAffinities;
+        private Dictionary<string, List<AffinityLevel>> taggedAffinities;
+        private Dictionary<string, AffinityLevel> globalAffinities;
+        
         private Dictionary<string, List<string>> pilotStatMap;
         private Dictionary<string, string> chassisPrefabLut;
         private Dictionary<string, string> prefabOverrides;
         private Dictionary<string, DescriptionHolder> levelDescriptors;
         private Dictionary<string, List<string>> pilotNoDeployStatMap;
-        private Dictionary<string, List<AffinityLevel>> quirkAffinities;
-        private Dictionary<string, List<AffinityLevel>> taggedAffinities;
+        
         private Dictionary<string, EIdType> overloads;
         private Dictionary<string, string> remappedIds;
         private List<string> tagsWithAffinities;
         private DataManager dataManager = null;
+        private PilotAffinitySettings settings;
 
         public static PilotAffinityManager Instance
         {
             get
             {
                 if (_instance == null) _instance = new PilotAffinityManager();
-                if (!_instance.hasInitialized) _instance.initialize();
+                if (!_instance.hasInitialized) _instance.initialize(Main.settings.affinitySettings, Main.affinityDefs);
                 return _instance;
             }
         }
 
-        public void initialize()
+        public void initialize(PilotAffinitySettings pilotAffinitySettings, List<AffinityDef> affinityDefs)
         {
             if(hasInitialized) return;
+            settings = pilotAffinitySettings;
             chassisAffinities = new Dictionary<string, List<AffinityLevel>>();
             quirkAffinities = new Dictionary<string, List<AffinityLevel>>();
             taggedAffinities = new Dictionary<string, List<AffinityLevel>>();
+            globalAffinities = new Dictionary<string, AffinityLevel>();
+            
             prefabOverrides = new Dictionary<string, string>();
             chassisPrefabLut = new Dictionary<string, string>();
             levelDescriptors = new Dictionary<string, DescriptionHolder>();
@@ -69,100 +76,110 @@ namespace MechAffinity
             pilotNoDeployStatMap = new Dictionary<string, List<string>>();
             overloads = new Dictionary<string, EIdType>();
             remappedIds = new Dictionary<string, string>();
-            
-            Main.modLog.LogMessage("chassisAffinities:"+ Main.settings.chassisAffinities.Count);
-            foreach (ChassisSpecificAffinity chassisSpecific in Main.settings.chassisAffinities)
+
+            foreach (var affinityDef in affinityDefs)
             {
-                Main.modLog.LogMessage(" id:"+ chassisSpecific.id);
-                foreach (string chassisName in chassisSpecific.chassisNames)
+                switch (affinityDef.affinityType)
                 {
-                    chassisAffinities.Add(chassisName, chassisSpecific.affinityLevels);
-                    if (chassisSpecific.idType != EIdType.AssemblyVariant)
-                    {
-                        overloads.Add(chassisName, chassisSpecific.idType);
-                    }
-                }
-                foreach (AffinityLevel affinityLevel in chassisSpecific.affinityLevels)
-                {
-                    Main.modLog.LogMessage("  level:" + affinityLevel.id);
-                    levelDescriptors[affinityLevel.levelName] = new DescriptionHolder(affinityLevel.levelName, affinityLevel.decription, affinityLevel.missionsRequired);
-                    foreach (JObject jObject in affinityLevel.effectData)
-                    {
-                        EffectData effectData = new EffectData();
-                        effectData.FromJSON(jObject.ToString());
-                        affinityLevel.effects.Add(effectData);
-                    }
-                }
-            }
-            Main.modLog.LogMessage("taggedAffinities:" + Main.settings.taggedAffinities.Count);
-            foreach (TaggedAffinity tagged in Main.settings.taggedAffinities)
-            {
-                tagsWithAffinities.Add(tagged.tag);
-                Main.modLog.LogMessage(" id:"+ tagged.id);
-                foreach (string chassisName in tagged.chassisNames)
-                {
-                    taggedAffinities.Add($"{tagged.tag}={chassisName}", tagged.affinityLevels);
-                    if (tagged.idType != EIdType.AssemblyVariant)
-                    {
-                        if (!overloads.ContainsKey(chassisName))
+                    case EAffinityDefType.Global:
+                        var affinity = affinityDef.getGlobalAffinity();
+                        globalAffinities.Add(affinityDef.id, affinityDef.getGlobalAffinity());
+                        break;
+                    case EAffinityDefType.Chassis:
+                        var chassisSpecific = affinityDef.getChassisAffinity();
+                        Main.modLog.LogMessage(" id:"+ chassisSpecific.id);
+                        foreach (string chassisName in chassisSpecific.chassisNames)
                         {
-                            overloads.Add(chassisName, tagged.idType);
+                            chassisAffinities.Add(chassisName, chassisSpecific.affinityLevels);
+                            if (chassisSpecific.idType != EIdType.AssemblyVariant)
+                            {
+                                overloads.Add(chassisName, chassisSpecific.idType);
+                            }
                         }
-                    }
-                }
-                foreach (AffinityLevel affinityLevel in tagged.affinityLevels)
-                {
-                    levelDescriptors[affinityLevel.levelName] = new DescriptionHolder(affinityLevel.levelName, affinityLevel.decription, affinityLevel.missionsRequired);
-                    Main.modLog.LogMessage("  level:" + affinityLevel.id);
-                    foreach (JObject jObject in affinityLevel.effectData)
-                    {
-                        EffectData effectData = new EffectData();
-                        effectData.FromJSON(jObject.ToString());
-                        affinityLevel.effects.Add(effectData);
-                    }
+
+                        foreach (var altMap in chassisSpecific.altMaps)
+                        {
+                            foreach (string chassisName in altMap.chassisIds)
+                            {
+                                chassisAffinities.Add(chassisName, chassisSpecific.affinityLevels);
+                                if (altMap.idType != EIdType.AssemblyVariant)
+                                {
+                                    overloads.Add(chassisName, altMap.idType);
+                                }
+                            }
+                        }
+                        foreach (AffinityLevel affinityLevel in chassisSpecific.affinityLevels)
+                        {
+                            Main.modLog.LogMessage("  level:" + affinityLevel.id);
+                            levelDescriptors[affinityLevel.id] = new DescriptionHolder(affinityLevel.levelName, affinityLevel.decription, affinityLevel.missionsRequired);
+                        }
+                        break;
+                    case EAffinityDefType.Quirk:
+                        var quirkAffinity = affinityDef.getQuirkAffinity();
+                        Main.modLog.LogMessage(" id:"+ quirkAffinity.id);
+                        foreach (string quirkName in quirkAffinity.quirkNames)
+                        {
+                            quirkAffinities.Add(quirkName, quirkAffinity.affinityLevels);
+                        }
+                        foreach (AffinityLevel affinityLevel in quirkAffinity.affinityLevels)
+                        {
+                            Main.modLog.LogMessage("  level:" + affinityLevel.id);
+                            levelDescriptors[affinityLevel.id] = new DescriptionHolder(affinityLevel.levelName, affinityLevel.decription, affinityLevel.missionsRequired);
+                        }
+                        break;
+                    case EAffinityDefType.Tag:
+                        var tagged = affinityDef.getTaggedAffinity();
+                        tagsWithAffinities.Add(tagged.tag);
+                        Main.modLog.LogMessage(" id:"+ tagged.id);
+                        foreach (string chassisName in tagged.chassisNames)
+                        {
+                            taggedAffinities.Add($"{tagged.tag}={chassisName}", tagged.affinityLevels);
+                            if (tagged.idType != EIdType.AssemblyVariant)
+                            {
+                                if (!overloads.ContainsKey(chassisName))
+                                {
+                                    overloads.Add(chassisName, tagged.idType);
+                                }
+                            }
+                        }
+                        foreach (var altMap in tagged.altMaps)
+                        {
+                            foreach (string chassisName in altMap.chassisIds)
+                            {
+                                taggedAffinities.Add($"{tagged.tag}={chassisName}", tagged.affinityLevels);
+                                if (altMap.idType != EIdType.AssemblyVariant)
+                                {
+                                    if (!overloads.ContainsKey(chassisName))
+                                    {
+                                        overloads.Add(chassisName, altMap.idType);
+                                    }
+                                }
+                            }
+                        }
+                        foreach (AffinityLevel affinityLevel in tagged.affinityLevels)
+                        {
+                            levelDescriptors[affinityLevel.id] = new DescriptionHolder(affinityLevel.levelName, affinityLevel.decription, affinityLevel.missionsRequired);
+                            Main.modLog.LogMessage("  level:" + affinityLevel.id);
+                        }
+                        break;
                 }
             }
-            Main.modLog.LogMessage("quirkAffinities:" + Main.settings.quirkAffinities.Count);
-            foreach (QuirkAffinity quirkAffinity in Main.settings.quirkAffinities)
-            {
-                Main.modLog.LogMessage(" id:"+ quirkAffinity.id);
-                foreach (string quirkName in quirkAffinity.quirkNames)
-                {
-                    quirkAffinities.Add(quirkName, quirkAffinity.affinityLevels);
-                }
-                foreach (AffinityLevel affinityLevel in quirkAffinity.affinityLevels)
-                {
-                    Main.modLog.LogMessage("  level:" + affinityLevel.id);
-                    levelDescriptors[affinityLevel.levelName] = new DescriptionHolder(affinityLevel.levelName, affinityLevel.decription, affinityLevel.missionsRequired);
-                    foreach (JObject jObject in affinityLevel.effectData)
-                    {
-                        EffectData effectData = new EffectData();
-                        effectData.FromJSON(jObject.ToString());
-                        affinityLevel.effects.Add(effectData);
-                    }
-                }
-            }
-            Main.modLog.LogMessage("globalAffinities:" + Main.settings.globalAffinities.Count);
-            foreach (AffinityLevel affinity in Main.settings.globalAffinities)
-            {
-                Main.modLog.LogMessage(" id:"+ affinity.id);
-                foreach (JObject jObject in affinity.effectData)
-                {
-                    EffectData effectData = new EffectData();
-                    effectData.FromJSON(jObject.ToString());
-                    affinity.effects.Add(effectData);
-                }
-            }
-            foreach (PrefabOverride overRide in Main.settings.prefabOverrides)
+            
+            Main.modLog.LogMessage("chassisAffinities:"+ chassisAffinities.Count);
+            Main.modLog.LogMessage("taggedAffinities:" + taggedAffinities.Count);
+            Main.modLog.LogMessage("quirkAffinities:" + quirkAffinities.Count);
+            Main.modLog.LogMessage("globalAffinities:" + globalAffinities.Count);
+
+            foreach (PrefabOverride overRide in settings.prefabOverrides)
             {
                 prefabOverrides[overRide.prefabId] = overRide.overrideName;
             }
-            foreach (AffinityLevel affinityLevel in Main.settings.globalAffinities)
+            foreach (AffinityLevel affinityLevel in globalAffinities.Values)
             {
-                levelDescriptors[affinityLevel.levelName] = new DescriptionHolder(affinityLevel.levelName, affinityLevel.decription, affinityLevel.missionsRequired);
+                levelDescriptors[affinityLevel.id] = new DescriptionHolder(affinityLevel.levelName, affinityLevel.decription, affinityLevel.missionsRequired);
             }
             levelDescriptors[MaNoAffinity] = new DescriptionHolder(MaNoAffinity, "", 0);
-            foreach (AffinityGroup affinityGroup in Main.settings.affinityGroups)
+            foreach (AffinityGroup affinityGroup in settings.affinityGroups)
             {
                 foreach (string id in affinityGroup.assemblyGroup)
                 {
@@ -220,13 +237,13 @@ namespace MechAffinity
             {
                 companyStats.RemoveStatistic(MaLutStat);
             }
-            if (!companyStats.ContainsStatistic(MaSimDaysDecayModulatorStat) && Main.settings.trackSimDecayByStat)
+            if (!companyStats.ContainsStatistic(MaSimDaysDecayModulatorStat) && settings.trackSimDecayByStat)
             {
-                companyStats.AddStatistic<int>(MaSimDaysDecayModulatorStat, Main.settings.defaultDaysBeforeSimDecay);
+                companyStats.AddStatistic<int>(MaSimDaysDecayModulatorStat, settings.defaultDaysBeforeSimDecay);
             }
-            if (!companyStats.ContainsStatistic(MaLowestDecayStat) && Main.settings.trackLowestDecayByStat)
+            if (!companyStats.ContainsStatistic(MaLowestDecayStat) && settings.trackLowestDecayByStat)
             {
-                companyStats.AddStatistic<int>(MaLowestDecayStat, Main.settings.lowestPossibleDecay);
+                companyStats.AddStatistic<int>(MaLowestDecayStat, settings.lowestPossibleDecay);
             }
         }
 
@@ -366,26 +383,26 @@ namespace MechAffinity
 
         private int getLowestDecay()
         {
-            if (Main.settings.trackLowestDecayByStat)
+            if (settings.trackLowestDecayByStat)
             {
                 if (companyStats != null)
                 {
                     return companyStats.GetValue<int>(MaLowestDecayStat);
                 }
             }
-            return Main.settings.lowestPossibleDecay;
+            return settings.lowestPossibleDecay;
         }
 
         private int getSimDecayDays()
         {
-            if (Main.settings.trackSimDecayByStat)
+            if (settings.trackSimDecayByStat)
             {
                 if (companyStats != null)
                 {
                     return companyStats.GetValue<int>(MaSimDaysDecayModulatorStat);
                 }
             }
-            return Main.settings.defaultDaysBeforeSimDecay;
+            return settings.defaultDaysBeforeSimDecay;
         }
 
         private List<string> getPossibleQuirkAffinites(MechDef mech)
@@ -601,18 +618,18 @@ namespace MechAffinity
 
         private bool shouldDecay(int decayCount)
         {
-            if (Main.settings.missionsBeforeDecay != -1)
+            if (settings.missionsBeforeDecay != -1)
             {
-                if (Main.settings.decayByModulo)
+                if (settings.decayByModulo)
                 {
-                    if (decayCount != 0 && ((decayCount % Main.settings.missionsBeforeDecay) == 0))
+                    if (decayCount != 0 && ((decayCount % settings.missionsBeforeDecay) == 0))
                     {
                         return true;
                     }
                 }
                 else
                 {
-                    if(decayCount >= Main.settings.missionsBeforeDecay)
+                    if(decayCount >= settings.missionsBeforeDecay)
                     {
                         return true;
                     }
@@ -628,7 +645,7 @@ namespace MechAffinity
             {
                 return;
             }
-            if (Main.settings.missionsBeforeDecay != -1 || Main.settings.removeAffinityAfter != -1)
+            if (settings.missionsBeforeDecay != -1 || settings.removeAffinityAfter != -1)
             {
                 string pilotId = decayStat.Split('=')[1];
                 List<string> decayList = pilotNoDeployStatMap[pilotId];
@@ -646,7 +663,7 @@ namespace MechAffinity
                         else
                         {
                             decayed++;
-                            if (Main.settings.removeAffinityAfter != -1 && decayed >= Main.settings.removeAffinityAfter)
+                            if (settings.removeAffinityAfter != -1 && decayed >= settings.removeAffinityAfter)
                             {
                                 companyStats.RemoveStatistic(decaying);
                                 companyStats.RemoveStatistic(affinityStat);
@@ -733,7 +750,7 @@ namespace MechAffinity
             {
                 int stat = companyStats.GetValue<int>(statName);
                 stat+= incrementBy;
-                stat = Math.Min(stat, Main.settings.maxAffinityPoints);
+                stat = Math.Min(stat, settings.maxAffinityPoints);
                 companyStats.Set<int>(statName, stat);
             }
             else
@@ -768,14 +785,14 @@ namespace MechAffinity
             int deployCount = getDeploymentCountWithMech(pilot, prefab);
             //Main.modLog.LogMessage($"Deployment Count: {deployCount}");
 
-            foreach (AffinityLevel affinityLevel in Main.settings.globalAffinities)
+            foreach (AffinityLevel affinityLevel in globalAffinities.Values)
             {
                 if (deployCount >= affinityLevel.missionsRequired)
                 {
                     if (affinityLevel.missionsRequired >= maxSoFar)
                     {
                         maxSoFar = affinityLevel.missionsRequired;
-                        ret = affinityLevel.levelName;
+                        ret = affinityLevel.id;
                     }
                 }
 
@@ -790,7 +807,7 @@ namespace MechAffinity
                         if (affinityLevel.missionsRequired >= maxSoFar)
                         {
                             maxSoFar = affinityLevel.missionsRequired;
-                            ret = affinityLevel.levelName;
+                            ret = affinityLevel.id;
                         }
                     }
                 }
@@ -808,11 +825,11 @@ namespace MechAffinity
             //Main.modLog.LogMessage($"Deployment Count: {deployCount}");
             List<string> tags = getPossibleTaggedAffinities(pilot);
 
-            foreach (AffinityLevel affinityLevel in Main.settings.globalAffinities)
+            foreach (AffinityLevel affinityLevel in globalAffinities.Values)
             {
                 if (deployCount >= affinityLevel.missionsRequired)
                 {
-                    string toAdd = affinityLevel.levelName;
+                    string toAdd = affinityLevel.id;
                     if (withCounts) toAdd += $" ({deployCount}/{affinityLevel.missionsRequired})";
                     ret.Add(toAdd);
                 }
@@ -825,7 +842,7 @@ namespace MechAffinity
                 {
                     if (deployCount >= affinityLevel.missionsRequired)
                     {
-                        string toAdd = affinityLevel.levelName;
+                        string toAdd = affinityLevel.id;
                         if (withCounts) toAdd += $" ({deployCount}/{affinityLevel.missionsRequired})";
                         ret.Add(toAdd);
                     }
@@ -841,7 +858,7 @@ namespace MechAffinity
                     {
                         if (deployCount >= affinityLevel.missionsRequired)
                         {
-                            string toAdd = affinityLevel.levelName;
+                            string toAdd = affinityLevel.id;
                             if (withCounts) toAdd += $" ({deployCount}/{affinityLevel.missionsRequired})";
                             ret.Add(toAdd);
                         }
@@ -863,7 +880,7 @@ namespace MechAffinity
             //Main.modLog.LogMessage($"Deployment Count: {deployCount}");
             List<AffinityLevel> levels = new List<AffinityLevel>();
 
-            foreach (AffinityLevel affinityLevel in Main.settings.globalAffinities)
+            foreach (AffinityLevel affinityLevel in globalAffinities.Values)
             {
                 levels.Add(affinityLevel);
             }
@@ -914,7 +931,7 @@ namespace MechAffinity
                 foreach(string chassisId in pilotStatMap[pilotId])
                 {
                     List<string> levels;
-                    if (Main.settings.showAllPilotAffinities)
+                    if (settings.showAllPilotAffinities)
                     {
                         levels = getAllLevels(pilot, chassisId, false);
                     }
@@ -977,7 +994,7 @@ namespace MechAffinity
                         chassisValues[chassisId] = getDeploymentCountWithMech(pilot, chassisId);
                     }
 
-                    int toShow = Math.Min(chassisValues.Count, Main.settings.topAffinitiesInTooltipCount);
+                    int toShow = Math.Min(chassisValues.Count, settings.topAffinitiesInTooltipCount);
                     List<KeyValuePair<string, int>> sortedCounts = chassisValues.OrderByDescending(d => d.Value).ToList();
                     for (int i = 0; i < toShow; i++)
                     {
@@ -1019,11 +1036,11 @@ namespace MechAffinity
             effects = new List<EffectData>();
             Main.modLog.LogMessage($"Processing Pilot/Mech Combo {statName}");
 
-            foreach (AffinityLevel affinityLevel in Main.settings.globalAffinities)
+            foreach (AffinityLevel affinityLevel in globalAffinities.Values)
             {
                 if (deployCount >= affinityLevel.missionsRequired)
                 {
-                    Main.modLog.LogMessage($"Pilot/Mech Combo {statName} has achieved Global Level {affinityLevel.levelName}");
+                    Main.modLog.LogMessage($"Pilot/Mech Combo {statName} has achieved Global Level {affinityLevel.id}");
                     foreach (Affinity affinity in affinityLevel.affinities)
                     {
                         if (bonuses.ContainsKey(affinity.type))
@@ -1050,7 +1067,7 @@ namespace MechAffinity
                     {
                         if (deployCount >= affinityLevel.missionsRequired)
                         {
-                            Main.modLog.LogMessage($"Pilot/Mech Combo {statName} has achieved Chassis Specific Level {affinityLevel.levelName}");
+                            Main.modLog.LogMessage($"Pilot/Mech Combo {statName} has achieved Chassis Specific Level {affinityLevel.id}");
                             foreach (Affinity affinity in affinityLevel.affinities)
                             {
                                 if (bonuses.ContainsKey(affinity.type))
@@ -1081,7 +1098,7 @@ namespace MechAffinity
                             if (deployCount >= affinityLevel.missionsRequired)
                             {
                                 Main.modLog.LogMessage(
-                                    $"Pilot/Mech Combo {statName} has achieved Tagged Level {affinityLevel.levelName}");
+                                    $"Pilot/Mech Combo {statName} has achieved Tagged Level {affinityLevel.id}");
                                 foreach (Affinity affinity in affinityLevel.affinities)
                                 {
                                     if (bonuses.ContainsKey(affinity.type))
@@ -1112,7 +1129,7 @@ namespace MechAffinity
                 {
                     if (deployCount >= affinityLevel.missionsRequired)
                     {
-                        Main.modLog.LogMessage($"Pilot/Mech Combo {statName} has achieved Quirk Specific Level {affinityLevel.levelName}");
+                        Main.modLog.LogMessage($"Pilot/Mech Combo {statName} has achieved Quirk Specific Level {affinityLevel.id}");
                         foreach (Affinity affinity in affinityLevel.affinities)
                         {
                             if (bonuses.ContainsKey(affinity.type))
@@ -1138,7 +1155,10 @@ namespace MechAffinity
         private void getDeploymentBonus(AbstractActor actor, out Dictionary<EAffinityType, int> bonuses, out List<EffectData> effects)
         {
             int deployCount = getDeploymentCountWithMech(actor);
+            Main.modLog.LogMessage($"Pilot Natural Affinity: {deployCount}");
+            deployCount += getPilotDeployBonusByTag(actor);
             string chassisPrefab = getPrefabId(actor, EIdType.ChassisId);
+            Main.modLog.LogMessage($"Pilot Total Affinity: {deployCount}");
             if (String.IsNullOrEmpty(chassisPrefab))
             {
                 Main.modLog.LogMessage("Null Prefab on player unit!!");
@@ -1167,9 +1187,9 @@ namespace MechAffinity
             if (pilot != null)
             {
                 List<string> tags = pilot.pilotDef.PilotTags.ToArray().ToList();
-                if (!String.IsNullOrEmpty(Main.settings.debugForceTag))
+                if (!String.IsNullOrEmpty(settings.debugForceTag))
                 {
-                    tags.Add(Main.settings.debugForceTag);
+                    tags.Add(settings.debugForceTag);
                 }
                 foreach(string tag in tags)
                 {
@@ -1402,14 +1422,14 @@ namespace MechAffinity
                 List<AffinityLevel> affinityLevels = chassisAffinities[prefab];
                 foreach (AffinityLevel affinityLevel in affinityLevels)
                 {
-                    if(!levels.Contains(affinityLevel.levelName))
+                    if(!levels.Contains(affinityLevel.id))
                     {
-                        levels.Add(affinityLevel.levelName);
-                        Main.modLog.DebugMessage($"adding chassis affinity descriptor for {affinityLevel.levelName}");
+                        levels.Add(affinityLevel.id);
+                        Main.modLog.DebugMessage($"adding chassis affinity descriptor for {affinityLevel.id}");
                     }
                 }
             }
-            if (Main.settings.showQuirks)
+            if (settings.showQuirks)
             {
                 List<string> quirks = getPossibleQuirkAffinites(chassis);
                 foreach(string quirk in quirks)
@@ -1418,10 +1438,10 @@ namespace MechAffinity
                     List<AffinityLevel> affinityLevels = quirkAffinities[quirk];
                     foreach (AffinityLevel affinityLevel in affinityLevels)
                     {
-                        if (!levels.Contains(affinityLevel.levelName))
+                        if (!levels.Contains(affinityLevel.id))
                         {
-                            levels.Add(affinityLevel.levelName);
-                            Main.modLog.DebugMessage($"adding quirk affinity descriptor for {affinityLevel.levelName}");
+                            levels.Add(affinityLevel.id);
+                            Main.modLog.DebugMessage($"adding quirk affinity descriptor for {affinityLevel.id}");
                         }
                     }
                 }

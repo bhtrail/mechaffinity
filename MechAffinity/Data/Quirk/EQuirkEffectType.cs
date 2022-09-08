@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace MechAffinity.Data
 {
-    enum EQuirkEffectType
+    public enum EQuirkEffectType
     {
         MedTech = 0,
         MechTech = 1,
@@ -16,6 +16,8 @@ namespace MechAffinity.Data
         ArgoUpgradeFactor = 5,
         ArgoUpkeepFactor = 6,
         CriminalEffect2 = 7,
-        PilotHealth = 8
+        PilotHealth = 8,
+        Immortality = 9,
+        AdditionalSalvage = 10
     }
 }

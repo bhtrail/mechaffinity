@@ -1,10 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using BattleTech;
 using MechAffinity.Data;
 using Newtonsoft.Json.Linq;
 using Harmony;
+using UnityEngine;
+using UnityEngine.UI;
+using Random = System.Random;
 
 namespace MechAffinity
 {
@@ -24,6 +26,7 @@ namespace MechAffinity
         private StatCollection companyStats;
         private Dictionary<string, PilotQuirk> quirks;
         private Dictionary<string, QuirkPool> quirkPools;
+        private PilotQuirkSettings settings;
         private bool moraleModInstanced;
 
         public static PilotQuirkManager Instance
@@ -31,18 +34,19 @@ namespace MechAffinity
             get
             {
                 if (_instance == null) _instance = new PilotQuirkManager();
-                if (!_instance.hasInitialized) _instance.initialize();
+                if (!_instance.hasInitialized) _instance.initialize(Main.settings.quirkSettings, Main.pilotQuirks);
                 return _instance;
             }
         }
 
-        public void initialize()
+        public void initialize(PilotQuirkSettings pilotQuirkSettings, List<PilotQuirk> pilotQuirks)
         {
             if(hasInitialized) return;
+            settings = pilotQuirkSettings;
             UidManager.reset();
             moraleModInstanced = true;
             quirks = new Dictionary<string, PilotQuirk>();
-            foreach (PilotQuirk pilotQuirk in Main.settings.pilotQuirks)
+            foreach (PilotQuirk pilotQuirk in pilotQuirks)
             {
                 foreach (JObject jObject in pilotQuirk.effectData)
                 {
@@ -54,7 +58,7 @@ namespace MechAffinity
                 quirks.Add(pilotQuirk.tag, pilotQuirk);
             }
             quirkPools = new Dictionary<string, QuirkPool>();
-            foreach (QuirkPool quirkPool in Main.settings.quirkPools)
+            foreach (QuirkPool quirkPool in settings.quirkPools)
             {
                 quirkPools.Add(quirkPool.tag, quirkPool);
             }
@@ -268,7 +272,7 @@ namespace MechAffinity
                 }
                 else
                 {
-                    if (Main.settings.playerQuirkPools)
+                    if (settings.playerQuirkPools)
                     {
                         canUsePools = true;
                         Main.modLog.LogMessage("pq player pools enabled, allowing pooled quirk use");
@@ -280,9 +284,10 @@ namespace MechAffinity
 
         }
 
-        public float getPilotCostMulitplier(PilotDef pilotDef)
+        public float getPilotCostModifier(PilotDef pilotDef, out int flatCost)
         {
             float ret = 1.0f;
+            flatCost = 0;
 
             List<PilotQuirk> pilotQuirks = getQuirks(pilotDef);
             foreach (PilotQuirk quirk in pilotQuirks)
@@ -292,6 +297,7 @@ namespace MechAffinity
                     if(effect.type == EQuirkEffectType.PilotCostFactor)
                     {
                         ret += effect.modifier;
+                        flatCost += Mathf.FloorToInt(effect.secondaryModifier);
                     }
                 }
             }
@@ -367,10 +373,49 @@ namespace MechAffinity
             }
         }
 
+        private void processAdditionalTags(PilotDef def, bool isNew)
+        {
+            if (!isNew) return;
+            List<string> tags = def.PilotTags.ToList();
+            foreach (string tag in settings.addTags)
+            {
+                if (!tags.Contains(tag))
+                {
+                    def.PilotTags.Add(tag);
+                    Main.modLog.LogMessage($"Adding Tag: {tag} to {def.Description.Callsign}");
+                }
+            }
+
+            foreach (var update in settings.tagUpdates)
+            {
+                if (tags.Contains(update.selector))
+                {
+                    foreach (var newTag in update.addTags)
+                    {
+                        if (!tags.Contains(newTag))
+                        {
+                            def.PilotTags.Add(newTag);
+                            Main.modLog.LogMessage($"Adding Tag: {newTag} to {def.Description.Callsign}");
+                        }
+                    }
+                    foreach (var depTag in update.removeTags)
+                    {
+                        if (tags.Contains(depTag))
+                        {
+                            def.PilotTags.Remove(depTag);
+                            Main.modLog.LogMessage($"Removing Tag: {depTag} to {def.Description.Callsign}");
+                        }
+                    }
+                }
+            }
+            
+        }
+
         public void proccessPilot(PilotDef def, bool isNew)
         {
             Main.modLog.LogMessage($"processing pilot: {def.Description.Callsign}");
             proccessPilotStats(def, isNew);
+            processAdditionalTags(def, isNew);
             if (def.PilotTags.Contains(PqMarkedTag) && isNew)
             {
                 if (!moraleModInstanced)
@@ -520,6 +565,54 @@ namespace MechAffinity
             }
         }
 
+        public bool hasImmortality(PilotDef pilotDef)
+        {
+            List<PilotQuirk> pilotQuirks = getQuirks(pilotDef);
+            foreach (PilotQuirk quirk in pilotQuirks)
+            {
+                foreach (QuirkEffect effect in quirk.quirkEffects)
+                {
+                    if (effect.type == EQuirkEffectType.Immortality)
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+            
+        }
+
+        public void additionalSalvage(PilotDef pilotDef, ref int additionalSalvage, ref int additionalSalvagePicks)
+        {
+            List<PilotQuirk> pilotQuirks = getQuirks(pilotDef);
+            foreach (PilotQuirk quirk in pilotQuirks)
+            {
+                foreach (QuirkEffect effect in quirk.quirkEffects)
+                {
+                    if (effect.type == EQuirkEffectType.AdditionalSalvage)
+                    {
+                        additionalSalvage += Mathf.FloorToInt(effect.modifier);
+                        additionalSalvagePicks += Mathf.FloorToInt(effect.secondaryModifier);
+                        Main.modLog.LogMessage($"Pilot: {pilotDef.Description.Callsign}, adds: {effect.modifier} salvage, {effect.secondaryModifier} picks");
+                    }
+                }
+            }
+            
+        }
+
+        public bool isPilotImmortal(PilotDef pilotDef)
+        {
+            if (pilotDef.IsImmortal) return true;
+            return hasImmortality(pilotDef);
+
+        }
+
+        public bool isPilotImmortal(Pilot pilot)
+        {
+            return isPilotImmortal(pilot.pilotDef);
+        }
+
         public float getArgoUpgradeCostModifier(List<Pilot> pilots, string upgradeId, bool upkeep)
         {
             float ret = 1.0f;
@@ -540,13 +633,13 @@ namespace MechAffinity
                             if (effect.affectedIds.Contains(upgradeId) || effect.affectedIds.Contains(PqAllArgoUpgrades))
                             {
                                 if (Main.settings.debug) Main.modLog.DebugMessage($"Found Argo factor: {quirk.quirkName}, value: {effect.modifier}");
-                                if (Main.settings.pqArgoAdditive)
+                                if (settings.argoAdditive)
                                 {
                                     ret += effect.modifier;
                                 }
                                 else
                                 {
-                                    if (Main.settings.pqArgoMultiAutoAdjust)
+                                    if (settings.argoMultiAutoAdjust)
                                     {
                                         ret *= (1.0f + effect.modifier);
                                     }
@@ -563,9 +656,9 @@ namespace MechAffinity
                 }
             }
 
-            if (ret < Main.settings.pqArgoMin)
+            if (ret < settings.argoMin)
             {
-                ret = Main.settings.pqArgoMin;
+                ret = settings.argoMin;
             }
             if (Main.settings.debug) Main.modLog.DebugMessage($"Found cost factor multiplier: {ret}");
             return ret;
