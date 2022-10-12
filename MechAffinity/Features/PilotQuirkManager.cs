@@ -26,6 +26,7 @@ namespace MechAffinity
         private StatCollection companyStats;
         private Dictionary<string, PilotQuirk> quirks;
         private Dictionary<string, QuirkPool> quirkPools;
+        private Dictionary<string, QuirkRestriction> quirkRestrictions;
         private PilotQuirkSettings settings;
         private bool moraleModInstanced;
 
@@ -61,6 +62,11 @@ namespace MechAffinity
             foreach (QuirkPool quirkPool in settings.quirkPools)
             {
                 quirkPools.Add(quirkPool.tag, quirkPool);
+            }
+            quirkRestrictions = new Dictionary<string, QuirkRestriction>();
+            foreach (var restriction in settings.restrictions)
+            {
+                quirkRestrictions.Add(restriction.restrictionCategory, restriction);
             }
 
             hasInitialized = true;
@@ -113,7 +119,7 @@ namespace MechAffinity
             return choosenQuirks;
         }
         
-        private List<PilotQuirk> getQuirks(PilotDef pilotDef, bool usePools = false)
+        private List<PilotQuirk> getQuirks(PilotDef pilotDef, bool usePools = false, bool restrictedOnly = false)
         {
             List<PilotQuirk> pilotQuirks = new List<PilotQuirk>();
             if (pilotDef != null)
@@ -126,8 +132,20 @@ namespace MechAffinity
                     PilotQuirk quirk;
                     if (quirks.TryGetValue(tag, out quirk))
                     {
-                        pilotQuirks.Add(quirk);
-                        usedQuirks.Add(tag);
+                        if (restrictedOnly)
+                        {
+                            if (!string.IsNullOrEmpty(quirk.restrictionCategory))
+                            {
+                                pilotQuirks.Add(quirk);
+                                usedQuirks.Add(tag);
+                            }
+                        }
+                        else
+                        {
+                            pilotQuirks.Add(quirk);
+                            usedQuirks.Add(tag);
+                        }
+                        
                     }
                 }
 
@@ -163,24 +181,24 @@ namespace MechAffinity
             return pilotQuirks;
         }
 
-        private List<PilotQuirk> getQuirks(Pilot pilot, bool usePools = false)
+        private List<PilotQuirk> getQuirks(Pilot pilot, bool usePools = false, bool restrictedOnly = false)
         {
             if (pilot == null)
             {
                 return new List<PilotQuirk>();
             }
 
-            return getQuirks(pilot.pilotDef, usePools);
+            return getQuirks(pilot.pilotDef, usePools, restrictedOnly);
         }
 
-        private List<PilotQuirk> getQuirks(AbstractActor actor, bool usePools)
+        private List<PilotQuirk> getQuirks(AbstractActor actor, bool usePools, bool restrictedOnly = false)
         {
             if (actor == null)
             {
                 return new List<PilotQuirk>();
             }
 
-            return getQuirks(actor.GetPilot(), usePools);
+            return getQuirks(actor.GetPilot(), usePools, restrictedOnly);
         }
 
         public string getPilotToolTip(Pilot pilot)
@@ -239,6 +257,17 @@ namespace MechAffinity
             if (quirks.TryGetValue(tag, out quirk))
             {
                 desc = quirk.description;
+                return true;
+            }
+
+            return false;
+        }
+        
+        private bool GetQuirk(string tag, out PilotQuirk quirk)
+        {
+            quirk = null;
+            if (quirks.TryGetValue(tag, out quirk))
+            {
                 return true;
             }
 
@@ -527,6 +556,99 @@ namespace MechAffinity
             
         }
 
+        public void processTagChange(Pilot pilot, string tag, bool isNew)
+        {
+            Main.modLog.DebugMessage($"Tag change: {tag}");
+            PilotQuirk quirk;
+            if (!GetQuirk(tag, out quirk)) return;
+            float currentMechTek = companyStats.GetValue<float>(PqMechSkillTracker);
+            float currentMedTek = companyStats.GetValue<float>(PqMedSkillTracker);
+            float currentMoraleTek = companyStats.GetValue<float>(PqMoraleTracker);
+            bool updateMech = false;
+            bool updateMed = false;
+            bool updateMorale = false;
+            Main.modLog.LogMessage($"Processing Quirk Tag change on {pilot.Callsign} - {tag}: {isNew}");
+            
+            Main.modLog.LogMessage($"Tracker Stat: {PqMechSkillTracker}, value: {currentMechTek}");
+            Main.modLog.LogMessage($"Tracker Stat: {PqMedSkillTracker}, value: {currentMedTek}");
+            Main.modLog.LogMessage($"Tracker Stat: {PqMoraleTracker}, value: {currentMoraleTek}");
+
+            foreach (QuirkEffect effect in quirk.quirkEffects)
+            {
+                if (effect.type == EQuirkEffectType.MechTech)
+                {
+                    if (isNew)
+                    {
+                        currentMechTek += effect.modifier;
+                    }
+                    else
+                    {
+                        currentMechTek -= effect.modifier;
+                    }
+
+                    updateMech = true;
+                }
+                else if (effect.type == EQuirkEffectType.MedTech)
+                {
+                    if (isNew)
+                    {
+                        currentMedTek += effect.modifier;
+                    }
+                    else
+                    {
+                        currentMedTek -= effect.modifier;
+                    }
+
+                    updateMed = true;
+                }
+                else if (effect.type == EQuirkEffectType.Morale)
+                {
+                    if (isNew)
+                    {
+                        currentMoraleTek += effect.modifier;
+                    }
+                    else
+                    {
+                        currentMoraleTek -= effect.modifier;
+                    }
+
+                    updateMorale = true;
+                }
+                else if (effect.type == EQuirkEffectType.PilotHealth)
+                {
+                    if (isNew)
+                    {
+                        Traverse.Create(pilot.pilotDef).Property("Health")
+                                .SetValue((int) (pilot.pilotDef.Health + (int) effect.modifier));
+                            Main.modLog.LogMessage($"adding health to pilot: {pilot.pilotDef.Description.Callsign}");
+                            if (!pilot.pilotDef.PilotTags.Contains(PqMarkedPrefix + EQuirkEffectType.PilotHealth.ToString()))
+                            {
+                                pilot.pilotDef.PilotTags.Add(PqMarkedPrefix + EQuirkEffectType.PilotHealth.ToString());
+                            }
+                    }
+                    else
+                    {
+                        Main.modLog.LogMessage($"removing health to pilot: {pilot.pilotDef.Description.Callsign}");
+                        Traverse.Create(pilot.pilotDef).Property("Health").SetValue((int) (pilot.pilotDef.Health - (int) effect.modifier));
+                    }
+                        
+                }
+            }
+
+            if (updateMech)
+            {
+                updateStat(PqMechSkillTracker, MechTechSkill, currentMechTek);
+            }
+            if (updateMed)
+            {
+                updateStat(PqMedSkillTracker, MedTechSkill, currentMedTek);
+            }
+            if (updateMorale)
+            {
+                updateStat(PqMoraleTracker, Morale, currentMoraleTek);
+            }
+        }
+
         public void stealAmount(Pilot pilot, SimGameState sim)
         {
             int stealChance = 0;
@@ -699,6 +821,39 @@ namespace MechAffinity
             Main.modLog.LogMessage($"New Morale: {MoraleModifier}");
             companyStats.ModifyStat<int>("Mission", 0, "COMPANY_MonthlyStartingMorale", StatCollection.StatOperation.Set, MoraleModifier, -1, true);
             companyStats.ModifyStat<int>("Mission", 0, "Morale", StatCollection.StatOperation.Set, MoraleModifier, -1, true);
+        }
+
+        public QuirkRestriction pilotRestrictionInEffect(List<Pilot> pilotsInUse)
+        {
+            Dictionary<string, int> restrictionsToWatch = new Dictionary<string, int>();
+            // check each pilot and tally up any restricted quirks in use
+            foreach (var pilot in pilotsInUse)
+            {
+                List<PilotQuirk> restrictedQuirks = getQuirks(pilot, false, true);
+                foreach (var quirk in restrictedQuirks)
+                {
+                    if (!restrictionsToWatch.ContainsKey(quirk.restrictionCategory))
+                    {
+                        restrictionsToWatch.Add(quirk.restrictionCategory, 0);
+                    }
+
+                    restrictionsToWatch[quirk.restrictionCategory] += 1;
+                }
+            }
+            
+            // if any restrictions are breached send the first that is
+            foreach (var restrictedCategory in restrictionsToWatch.Keys)
+            {
+                QuirkRestriction quirk;
+                if (quirkRestrictions.TryGetValue(restrictedCategory, out quirk))
+                {
+                    if (quirk.deploymentCap < restrictionsToWatch[restrictedCategory])
+                    {
+                        return quirk;
+                    }
+                }
+            }
+            return (QuirkRestriction) null;
         }
     }
 }

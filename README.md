@@ -43,10 +43,12 @@ example:
   "enablePilotQuirks": false,
   "enableMonthlyMoraleReset": false,
   "enableStablePiloting": false,
+  "enableMonthlyTechAdjustments": false,
   "affinitySettings": {},
   "quirkSettings": {},
   "stablePilotingSettings": {},
   "pilotUiSettings": {},
+  "monthlyTechSettings": {},
   "legacyData": {}
 }
 ```
@@ -56,11 +58,13 @@ example:
 - `enablePilotQuirks` : when true, pilot quirk feaures will be enabled **Warning: This will conflict with Pilot Quirks mod**
 - `enablePilotSelect` : when `true` allow set or random ronin to be part of the initial career start pilot roster. you must setup [Pilot Select Settings](#pilot-select-settings) in `pilotselectsettings.json` for this to work
 - `enableMonthlyMoraleReset`: when `true` morale will be reset on the start of each month and then recalculated based on argo upgrades and pilot quirks
+- `enableMonthlyTechAdjustments`: when `true` the argo funding levels will also incorporate mech/medtech buffs/maluses as part of their funding level features
 - `enableStablePiloting`: when `true` enables 'Stable Piloting' features
 - `affinitySettings` : an [Affinity Settings](#affinity-settings) Object, this controls all settings for Affinity features
 - `quirkSettings` : a [Pilot Quirk Settings](#pilot-quirk-settings) Object, this controls all settings for Pilot Quirks features
 - `stablePilotingSettings` : a [Stable Piloting Settings](#stable-piloting-settings) object for controlling Stable Piloting features
 - `pilotUiSettings`: a [Pilot UI Settings](#pilot-ui-settings) Object, this controls all settings and configuration for Pilot UI features
+- `monthlyTechSettings`: a [Monthly Tech Adjust Settings](#monthly-tech-settings) Object, this controls all settings for the Monthly Tech Adjust features
 - `legacyData` : a `Legacy Data Settings` object, controls various options for outputting legacy versions of the settings file for compatibility with some third party tools
 
 ## Mech-Pilot Affinity
@@ -571,7 +575,8 @@ Quirks may have their various features adjusted using the below settings.
   "quirkPools":[],
   "tooltipTags":[],
   "addTags":[],
-  "tagUpdates": []
+  "tagUpdates": [],
+  "restrictions": []
 }
 ```
 
@@ -583,6 +588,7 @@ Quirks may have their various features adjusted using the below settings.
 - `tooltipTags` : a list of [PilotTooltipTag](#pilottooltiptag-objects) objects. These will be used for tooltips, this can be used for TBAS or for legacy functions of PilotQuirks for PilotFatigue support
 - `addTags` : a list of pilot tags. When Quirks are enabled, these tags will be automatically added to any pilot in your roster
 - `tagUpdates`: a list of [TagUpdate](#tageupdate-objects) objects. These can be used to roll out updates to existing pilots in the players roster without a save break.
+- `restrictions`: a list of [QuirkRestriction](#quirkrestriction-objects) objects. These can be used to keep powerful quirks from being overused
 
 #### QuirkPool objects
 
@@ -625,6 +631,22 @@ TagUpdate objects allow you to selectively roll out updates to pilots during a r
 - `selector`: the existing tag that signals this update should be run
 - `addTags`: tags to be added to the pilots with the selector, if the tag already is on the pilot it will not be added a second time
 - `removeTags`: tags to be removed from the pilots with the selector if the pilot has them.
+
+#### QuirkRestriction objects
+```json
+{
+  "restrictionCategory" : "",
+  "deploymentCap": 0,
+  "errorMsg": "",
+  "errorTitle": ""
+}
+```
+QuirkRestriction objects allow you to restrict powerful quirks from overuse by limiting the number of pilots with a particular quirk category
+
+- `restrictionCategory`: the quirk category this restriction is placed on, any [QuirkDef](#quirkdef-objects) with a `restrictionCategory` that matches this will be subject to this restriction
+- `deploymentCap`: the maximum number of quirks with this category that may be deployed in a single drop
+- `errorMsg`: message text for the user when this restriction occurs
+- `errorTitle`: title text for the user error message
 
 
 ### QuirkDef Objects
@@ -935,6 +957,40 @@ These objects define stability reductions or penalties for pilots possessing mat
   - `Piloting` : the magnitude of this effect is the `effect` value multiplied by the Piloting skill of the pilot.
   - `PilotingInverse` : the magnitude of this effect is the `effect` value multiplied by the `InverseMax` minus the Piloting skill of the pilot. When piloting reaches the Inverse Max or greater, this effect will become 0. This mode is best used to reduce a penalty as Piloting Skill grows.
 
+## Monthly Tech Adjustment
+
+Monthly Tech Adjustment adds some additional meaning to the various monthly funding levels of the Argo by adding a boost/malus to the mech and med tech values in addition to the morale modifier
+
+**Note: This is a re-imagining and expansion of the [Monthly Tech Adjustment](https://github.com/donZappo/MonthlyTechandMoraleAdjustment) feature set to resolve conflicts with this mod and will conflict with it when enabled**
+
+### Monthly Tech Settings
+
+**These settings only apply when `enableMonthlyTechAdjustments` is true**
+
+These settings control the 'Monthly Tech Adjustment' feature set.
+
+
+```json
+
+{
+  "SpartanMedModifier": -4,
+  "RestrictedMedModifier": -2,
+  "NormalMedModifier": 0,
+  "GenerousMedModifier": 1,
+  "ExtravagantMedModifier": 2,
+  "SpartanMechModifier": -4,
+  "RestrictedMechModifier": -2,
+  "NormalMechModifier": 0,
+  "GenerousMechModifier": 8,
+  "ExtravagantMechModifier": 2,
+  "UiFontSize": 28
+}
+
+```
+
+- `xxxMedModifier`: the buff/malus to the MedTech at the corresponding funding level, positive is a buff, negative is a malus. Note that this an adjustment from the baseline value, not an stacking modifier. This means if Spartan provides a -4 malus, taking Spartan for 2 straight months will still only be a -4 penalty, like wise with buffs
+- `xxxMedModifier`: the buff/malus to the MechTech at the corresponding funding level, positive is a buff, negative is a malus. Note that this an adjustment from the baseline value, not an stacking modifier. This means if Spartan provides a -4 malus, taking Spartan for 2 straight months will still only be a -4 penalty, like wise with buffs
+- `UiFontSize`: the fontsize of various parts of the financial report will not scale with additional text being added to the fields, to fix this we can scale the fontsize down to allow it to fit better. the default of 28 seems pretty good but is adjustable if needed. Note: vanilla's default size for these fields is 30 for comparision.
 
 ## Pilot UI Modifications
 
@@ -1067,45 +1123,4 @@ However, there is a relatively straightforward migration path:
 ```
 
 *Note if you are using the version of MA that doesn't depend on custom components then the `DependsOn` entries should be omitted
-
-## Stable Piloting Settings
-
-These settings control the 'Stable Piloting' feature set.
-
-Stable Piloting allows for various modifications to stability damage taken by pilots.
-
-```json
-{
-  "reductionPerPiloting" : 0.02,
-  "increasePerInjury" : 0.05,
-  "InverseMax" : 20,
-  "tagEffects" : []
-}
-```
-
-`reductionPerPiloting`: the reduction of stability damage taken, per point of Piloting of a pilot. default setting is 2% reduction per level.
-`increasePerInjury`: the increase of stability damage taken, per injury on a pilot.
-`InverseMax`: The maximum Piloting skill level to use for Inverse tag effects. default is 20
-`tagEffects`: a list of `PilotTagStabilityEffect` objects
-
-### PilotTagStabilityEffect Objects
-
-These objects define stability reductions or penalties for pilots possessing matching tags. A pilot with multiple matching tags will receive the benefits (or penalties) for all applicable tags.
-
-```json
-{
-  "tag" : "pilot_klutz",
-  "effect": 0.01,
-  "type" : "Piloting"
-}
-```
-
-`tag`: the pilot tag required to apply this effect
-`effect`: the magnitude for this effect. Note that exactly how this is applied is based on the type. a positive value is a penalty (increase in stability damage taken), a negative is a boost (reduction in stability damage taken)
-
-`type`: This determines how `effect` is apllied. Valid values for this field are:
-- `Flat`: the default value, the magnitude of this effect is simply the value of `effect`
-- `Piloting` : the magnitude of this effect is the `effect` value multiplied by the Piloting skill of the pilot.
-- `PilotingInverse` : the magnitude of this effect is the `effect` value multiplied by the `InverseMax` minus the Piloting skill of the pilot. When piloting reaches the Inverse Max or greater, this effect will become 0. This mode is best used to reduce a penalty as Piloting Skill grows.
-
 

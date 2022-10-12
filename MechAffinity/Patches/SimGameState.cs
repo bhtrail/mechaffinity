@@ -7,6 +7,8 @@ using Harmony;
 using BattleTech;
 using BattleTech.Save;
 using BattleTech.UI.Tooltips;
+using HBS;
+using HBS.Collections;
 using Localize;
 using MechAffinity;
 using MechAffinity.Data;
@@ -45,6 +47,11 @@ namespace MechAffinity.Patches
                 __instance.Commander.FromPilotDef(__instance.Commander.pilotDef);
                 PilotQuirkManager.Instance.forceMoraleInstanced();
             }
+
+            if (Main.settings.enableMonthlyTechAdjustments)
+            {
+                MonthlyTechAdjustmentManager.Instance.setCompanyStats(__instance.CompanyStats, __instance);
+            }
         }
     }
     
@@ -80,6 +87,11 @@ namespace MechAffinity.Patches
                 PilotQuirkManager.Instance.setCompanyStats(__instance.CompanyStats);
                 // new career so this will be instanced automatically
                 PilotQuirkManager.Instance.forceMoraleInstanced();
+            }
+            
+            if (Main.settings.enableMonthlyTechAdjustments)
+            {
+                MonthlyTechAdjustmentManager.Instance.setCompanyStats(__instance.CompanyStats, __instance);
             }
 
 
@@ -345,20 +357,21 @@ namespace MechAffinity.Patches
     }
     
     [HarmonyPatch(typeof(SimGameState), "OnNewQuarterBegin")]
-    public static class OnNewQuarterBeginSimGameStateBattleTechPatch
+    public static class SimGameState_OnNewQuarterBegin
     {
         public static bool Prepare()
         {
-            return Main.settings.enableMonthlyMoraleReset;
+            return Main.settings.enableMonthlyMoraleReset || Main.settings.enableMonthlyTechAdjustments;
         }
         public static void Postfix(SimGameState __instance)
         {
-            PilotQuirkManager.Instance.resetMorale(__instance);
+            if (Main.settings.enableMonthlyMoraleReset) PilotQuirkManager.Instance.resetMorale(__instance);
+            if (Main.settings.enableMonthlyTechAdjustments) MonthlyTechAdjustmentManager.Instance.resetTechLevels();
         }
     }
     
     [HarmonyPatch(typeof(SimGameState), "AddMorale")]
-    public static class AddMoralePatch
+    public static class SimGameState_AddMorale
     {
         public static bool Prepare()
         {
@@ -379,6 +392,23 @@ namespace MechAffinity.Patches
             }
             __instance.RoomManager.RefreshDisplay();
             return false;
+        }
+    }
+    
+    [HarmonyPatch(typeof(SimGameState), "SetExpenditureLevel")]
+    public static class SimGameState_SetExpenditureLevel
+    {
+        public static bool Prepare()
+        {
+            return Main.settings.enableMonthlyTechAdjustments;
+        }
+        public static void Postfix(SimGameState __instance, EconomyScale value, bool updateMorale)
+        {
+            if (updateMorale)
+            {
+                MonthlyTechAdjustmentManager.Instance.adjustTechLevels(value);
+                __instance.RoomManager.RefreshDisplay();
+            }
         }
     }
     
@@ -405,6 +435,64 @@ namespace MechAffinity.Patches
             {
                 BaseDescriptionDef def = PilotUiManager.Instance.GetDescriptionDef(pilotIcon.descriptionDefId);
                 if (def != null) RoninTooltip.SetDefaultStateData(TooltipUtilities.GetStateDataFromObject((object)def));
+            }
+        }
+    }
+    
+    [HarmonyPatch(typeof(SimGameState), "ApplySimGameEventResult", new Type[] {typeof(SimGameEventResult), typeof(List<object>), typeof(SimGameEventTracker)})]
+    public static class SimGameState_ApplySimGameEventResult
+    {
+        public static bool Prepare()
+        {
+            return Main.settings.enablePilotQuirks;
+        }
+        public static void Prefix(SimGameState __instance, SimGameEventResult result, List<object> objects)
+        {
+            SimGameState simulation = SceneSingletonBehavior<UnityGameInstance>.Instance.Game.Simulation;
+            SimGameReport.ReportEntry log = (SimGameReport.ReportEntry) null;
+            for (var i = 0; i < objects.Count; i++)
+            {
+                Pilot target = null;
+                TagSet tagSet;
+                switch (result.Scope)
+                {
+                    case EventScope.MechWarrior:
+                    case EventScope.AllMechWarriors:
+                    case EventScope.SecondaryMechWarrior:
+                    case EventScope.TertiaryMechWarrior:
+                        target = (Pilot) objects[i];
+                        tagSet = target.pilotDef.PilotTags;
+                        break;
+                    case EventScope.Commander:
+                        target = simulation.Commander;
+                        tagSet = simulation.CommanderTags;
+                        break;
+                    default:
+                        continue;
+                }
+
+                if (result.Requirements == null || simulation.MeetsRequirements(result.Requirements, log))
+                {
+                    if (result.AddedTags != null)
+                    {
+                        foreach (string addedTag in result.AddedTags)
+                        {
+                            if (!tagSet.Contains(addedTag)) 
+                                PilotQuirkManager.Instance.processTagChange(target, addedTag, true);
+                        }
+                    }
+
+                    if (result.RemovedTags != null)
+                    {
+                        foreach (string removedTag in result.RemovedTags)
+                        {
+                            if (tagSet.Contains(removedTag)) 
+                                PilotQuirkManager.Instance.processTagChange(target, removedTag, false);
+                            
+                        }
+                    }
+                }
+
             }
         }
     }
