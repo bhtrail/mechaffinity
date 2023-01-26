@@ -30,6 +30,10 @@ namespace MechAffinity
         private const string MaNoAffinity = "No Affinity";
         private const string MaConsumableTag = "MaConsumableAffinity_";
         private const string MaPermaTag = "MaPermAffinity_";
+        private const string MaPilotDeployCountTagLight = "affinityLevelLight_";
+        private const string MaPilotDeployCountTagMedium = "affinityLevelMedium_";
+        private const string MaPilotDeployCountTagHeavy = "affinityLevelHeavy_";
+        private const string MaPilotDeployCountTagAssault = "affinityLevelAssault_";
         private static PilotAffinityManager _instance;
         private StatCollection companyStats;
         private Dictionary<string, List<AffinityLevel>> chassisAffinities;
@@ -206,7 +210,15 @@ namespace MechAffinity
 
         public void setDataManager(DataManager dManager)
         {
-            dataManager = dManager;
+            if (dManager != null)
+            {
+                dataManager = dManager;
+            }
+            else
+            {
+                dataManager = UnityGameInstance.BattleTechGame.DataManager;
+            }
+
         }
 
         public void setCompanyStats(StatCollection stats)
@@ -314,7 +326,7 @@ namespace MechAffinity
                 {
                     if (dataManager == null)
                     {
-                        return null;
+                        setDataManager(null);
                     }
                     VehicleChassisDef vehicle = dataManager.VehicleChassisDefs.Get(chassis.Description.Id);
                     return getPrefabId(vehicle, idType);
@@ -368,7 +380,7 @@ namespace MechAffinity
                 {
                     if (dataManager == null)
                     {
-                        return null;
+                        setDataManager(null);
                     }
                     VehicleDef vehicle = dataManager.VehicleDefs.Get(mech.Description.Id);
                     return getPrefabId(vehicle, idType);
@@ -416,6 +428,24 @@ namespace MechAffinity
             return settings.defaultDaysBeforeSimDecay;
         }
 
+        private List<string> getDefaultEquipment(MechDef mechDef)
+        {
+            List<string> defaults = new List<string>();
+            #if USE_CS_CC
+                if (settings.treatDefaultsAsFixed)
+                {
+                    foreach (var component in mechDef.Inventory)
+                    {
+                        if (component.Flags<CCFlags>().Default)
+                        {
+                            defaults.Add(component.ComponentDefID);
+                        }
+                    }
+                }
+            #endif
+            return defaults;
+        }
+
         private List<string> getPossibleQuirkAffinites(MechDef mech)
         {
             List<string> quirks = new List<string>();
@@ -434,7 +464,8 @@ namespace MechAffinity
             }
             return quirks;
         }
-        private List<string> getPossibleQuirkAffinites(ChassisDef chassis)
+
+        private List<string> getPossibleQuirkAffinites(ChassisDef chassis, List<string> defaultComponents)
         {
             List<string> quirks = new List<string>();
             if (chassis.FixedEquipment != null)
@@ -446,6 +477,20 @@ namespace MechAffinity
                         if (!quirks.Contains(fixedEquip.ComponentDefID))
                         {
                             quirks.Add(fixedEquip.ComponentDefID);
+                        }
+                    }
+                }
+            }
+
+            if (defaultComponents != null)
+            {
+                foreach (var defaultComponent in defaultComponents)
+                {
+                    if (quirkAffinities.ContainsKey(defaultComponent))
+                    {
+                        if (!quirks.Contains(defaultComponent))
+                        {
+                            quirks.Add(defaultComponent);
                         }
                     }
                 }
@@ -620,10 +665,27 @@ namespace MechAffinity
             
         }
 
+        public int getDeploymentCountWithMech(Pilot pilot, MechDef mechDef)
+        {
+            string prefab = getPrefabId(mechDef, EIdType.ChassisId);
+            if (!overloads.ContainsKey(prefab))
+            {
+                prefab = getPrefabId(mechDef, EIdType.PrefabId);
+                if (!overloads.ContainsKey(prefab))
+                {
+                    prefab = getPrefabId(mechDef, EIdType.AssemblyVariant);
+                }
+            }
+            string statName = getAffinityStatName(pilot, prefab);
+            return getStatDeploymentCountWithMech(statName) + getTaggedDeploymentCountWithMech(pilot, prefab) + 
+                   getPilotDeployBonusByTag(pilot, mechDef.Chassis.weightClass);
+        }
+
         public int getDeploymentCountWithMech(Pilot pilot, string prefabId)
         {
             string statName = getAffinityStatName(pilot, prefabId);
-            return getStatDeploymentCountWithMech(statName) + getTaggedDeploymentCountWithMech(pilot, prefabId);
+            return getStatDeploymentCountWithMech(statName) + getTaggedDeploymentCountWithMech(pilot, prefabId) +
+                   getPilotDeployBonusByTag(pilot, WeightClass.ASSAULT);
 
         }
 
@@ -1191,10 +1253,11 @@ namespace MechAffinity
             getDeploymentBonus(deployCount, chassisPrefab, statName, possibleQuirks, possibleTags, out bonuses, out effects);
         }
 
-        public int getPilotDeployBonusByTag(AbstractActor actor)
+        public int getPilotDeployBonusByTag(Pilot pilot, WeightClass weightClass)
         {
             int deployCount = 0;
-            Pilot pilot = actor.GetPilot();
+            int deployBonus = 0;
+            
             if (pilot != null)
             {
                 List<string> tags = pilot.pilotDef.PilotTags.ToArray().ToList();
@@ -1207,15 +1270,61 @@ namespace MechAffinity
                     if (tag.StartsWith(MaPilotDeployCountTag))
                     {
                         string count = tag.Replace(MaPilotDeployCountTag, "");
-                        if (!int.TryParse(count, out deployCount))
+                        if (int.TryParse(count, out deployBonus))
                         {
-                            deployCount = 0;
+                            deployCount += deployBonus;
                         }
-                        break;
+                    }
+                    // for weight class bonuses
+                    else if (tag.StartsWith(MaPilotDeployCountTagLight) && weightClass == WeightClass.LIGHT)
+                    {
+                        string count = tag.Replace(MaPilotDeployCountTagLight, "");
+                        if (int.TryParse(count, out deployBonus))
+                        {
+                            deployCount += deployBonus;
+                        }
+                    }
+                    else if (tag.StartsWith(MaPilotDeployCountTagMedium) && weightClass == WeightClass.MEDIUM)
+                    {
+                        string count = tag.Replace(MaPilotDeployCountTagMedium, "");
+                        if (int.TryParse(count, out deployBonus))
+                        {
+                            deployCount += deployBonus;
+                        }
+                    }
+                    else if (tag.StartsWith(MaPilotDeployCountTagHeavy) && weightClass == WeightClass.HEAVY)
+                    {
+                        string count = tag.Replace(MaPilotDeployCountTagHeavy, "");
+                        if (int.TryParse(count, out deployBonus))
+                        {
+                            deployCount += deployBonus;
+                        }
+                    }
+                    else if (tag.StartsWith(MaPilotDeployCountTagAssault) && weightClass == WeightClass.ASSAULT)
+                    {
+                        string count = tag.Replace(MaPilotDeployCountTagAssault, "");
+                        if (int.TryParse(count, out deployBonus))
+                        {
+                            deployCount += deployBonus;
+                        }
                     }
                 }
             }
             return deployCount;
+        }
+
+        public int getPilotDeployBonusByTag(AbstractActor actor)
+        {
+            
+            Pilot pilot = actor.GetPilot();
+            Mech mech = actor as Mech;
+            WeightClass weightClass = WeightClass.ASSAULT;
+            if (mech != null)
+            {
+                weightClass = mech.weightClass;
+            }
+
+            return getPilotDeployBonusByTag(pilot, weightClass);
         }
 
         private void getAIBonuses(AbstractActor actor, out Dictionary<EAffinityType, int> bonuses, out List<EffectData> effects)
@@ -1353,68 +1462,11 @@ namespace MechAffinity
         
         public string getMechChassisAffinityDescription(MechDef mech)
         {
-            string prefab = getPrefabId(mech.Chassis, EIdType.ChassisId);
-            if (!overloads.ContainsKey(prefab))
-            {
-                prefab = getPrefabId(mech.Chassis, EIdType.PrefabId);
-                if (!overloads.ContainsKey(prefab))
-                {
-                    prefab = getPrefabId(mech.Chassis, EIdType.AssemblyVariant);
-                }
-            }
-            string ret = "\n";
-            List<string> levels = new List<string>();
-            Main.modLog.DebugMessage($"Found prefab: {prefab}");
-            if (chassisAffinities.ContainsKey(prefab))
-            {
-                List<AffinityLevel> affinityLevels = chassisAffinities[prefab];
-                foreach (AffinityLevel affinityLevel in affinityLevels)
-                {
-                    if (!levels.Contains(affinityLevel.levelName))
-                    {
-                        levels.Add(affinityLevel.levelName);
-                        Main.modLog.DebugMessage($"adding chassis affinity descriptor for {affinityLevel.levelName}");
-                    }
-                }
-            }
-            if (Main.settings.showQuirks)
-            {
-                List<string> quirks = getPossibleQuirkAffinites(mech);
-                foreach (string quirk in quirks)
-                {
-                    Main.modLog.DebugMessage($"checking for a quirk affinity descriptor for {quirk}");
-                    List<AffinityLevel> affinityLevels = quirkAffinities[quirk];
-                    foreach (AffinityLevel affinityLevel in affinityLevels)
-                    {
-                        if (!levels.Contains(affinityLevel.levelName))
-                        {
-                            levels.Add(affinityLevel.levelName);
-                            Main.modLog.DebugMessage($"adding quirk affinity descriptor for {affinityLevel.levelName}");
-                        }
-                    }
-                }
-            }
-            if (levels.Count() > 0)
-            {
-                ret = "\n<b> Unlockable Affinities: </b>\n\n";
-            }
-            List<DescriptionHolder> descriptors = new List<DescriptionHolder>();
-            foreach (string level in levels)
-            {
-                descriptors.Add(levelDescriptors[level]);
-            }
-            descriptors.Sort();
-            foreach (DescriptionHolder descriptor in descriptors)
-            {
-                ret += descriptor.toString(true);
-            }
-
-            return ret;
-            //return getMechChassisAffinityDescription(mech.Chassis);
+            return getMechChassisAffinityDescription(mech.Chassis, getDefaultEquipment(mech));
         }
 
 
-        public string getMechChassisAffinityDescription(ChassisDef chassis)
+        public string getMechChassisAffinityDescription(ChassisDef chassis, List<string> defaultEquipment = null)
         {
             string prefab = getPrefabId(chassis, EIdType.ChassisId);
             if (!overloads.ContainsKey(prefab))
@@ -1425,6 +1477,7 @@ namespace MechAffinity
                     prefab = getPrefabId(chassis, EIdType.AssemblyVariant);
                 }
             }
+
             string ret = "\n";
             List<string> levels = new List<string>();
             Main.modLog.DebugMessage($"Found prefab: {prefab}");
@@ -1433,17 +1486,18 @@ namespace MechAffinity
                 List<AffinityLevel> affinityLevels = chassisAffinities[prefab];
                 foreach (AffinityLevel affinityLevel in affinityLevels)
                 {
-                    if(!levels.Contains(affinityLevel.id))
+                    if (!levels.Contains(affinityLevel.id))
                     {
                         levels.Add(affinityLevel.id);
                         Main.modLog.DebugMessage($"adding chassis affinity descriptor for {affinityLevel.id}");
                     }
                 }
             }
+
             if (settings.showQuirks)
             {
-                List<string> quirks = getPossibleQuirkAffinites(chassis);
-                foreach(string quirk in quirks)
+                List<string> quirks = getPossibleQuirkAffinites(chassis, defaultEquipment);
+                foreach (string quirk in quirks)
                 {
                     Main.modLog.DebugMessage($"checking for a quirk affinity descriptor for {quirk}");
                     List<AffinityLevel> affinityLevels = quirkAffinities[quirk];
@@ -1457,15 +1511,18 @@ namespace MechAffinity
                     }
                 }
             }
-            if(levels.Count() > 0)
+
+            if (levels.Count() > 0)
             {
                 ret = "\n<b> Unlockable Affinities: </b>\n\n";
             }
+
             List<DescriptionHolder> descriptors = new List<DescriptionHolder>();
             foreach (string level in levels)
             {
                 descriptors.Add(levelDescriptors[level]);
             }
+
             descriptors.Sort();
             foreach (DescriptionHolder descriptor in descriptors)
             {
