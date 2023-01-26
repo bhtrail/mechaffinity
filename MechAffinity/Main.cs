@@ -68,7 +68,7 @@ namespace MechAffinity
                     }
                 }
             }
-            settings.InitLookups();
+            
             try {
                 if (settings.legacyData.debug_writeLegacyAffinityData)
                 {
