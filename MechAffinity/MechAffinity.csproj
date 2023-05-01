@@ -12,7 +12,10 @@
     <AssemblySearchPaths>
       $(ReferencePath);
       {HintPathFromItem};
+	  $(BattleTechGameDir)\BattleTech_Data\Managed;
+	  $(BattleTechGameDir)\Mods\CustomComponents
     </AssemblySearchPaths>
+	  <Configurations>Debug;Release;ReleaseNoCS;ReleaseNoLT</Configurations>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugType>full</DebugType>
@@ -21,7 +24,7 @@
     <DebugType>pdbonly</DebugType>
     <DefineConstants>TRACE;USE_CS_CC;USE_LT</DefineConstants>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'ReleaseNoCS|AnyCPU'">
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'ReleaseNoCS|AnyCPU' ">
     <DefineConstants>TRACE</DefineConstants>
     <Optimize>true</Optimize>
     <DebugType>pdbonly</DebugType>
