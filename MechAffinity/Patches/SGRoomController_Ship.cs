@@ -1,6 +1,4 @@
-﻿using BattleTech;
-using BattleTech.UI;
-using System;
+﻿using BattleTech.UI;
 namespace MechAffinity.Patches;
 
 [HarmonyPatch(typeof(SGRoomController_Ship), "RefreshData")]

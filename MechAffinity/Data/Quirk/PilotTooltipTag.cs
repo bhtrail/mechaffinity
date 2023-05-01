@@ -1,8 +1,7 @@
-﻿namespace MechAffinity.Data
+﻿namespace MechAffinity.Data;
+
+public class PilotTooltipTag
 {
-    public class PilotTooltipTag
-    {
-        public string tag = "";
-        public string tooltipText = "";
-    }
+    public string tag = "";
+    public string tooltipText = "";
 }

@@ -1,53 +1,52 @@
 ﻿using System;
 
-namespace MechAffinity.Data
+namespace MechAffinity.Data;
+
+internal class DeferringLogger
 {
-    internal class DeferringLogger
+
+    private readonly Logger logger;
+    private bool isDebug = false;
+    
+    public DeferringLogger(string modDir, string fileName, bool enableDebug)
     {
 
-        private readonly Logger logger;
-        private bool isDebug = false;
-        
-        public DeferringLogger(string modDir, string fileName, bool enableDebug)
-        {
+        logger = new Logger(modDir, fileName);
+        isDebug = enableDebug;
+    }
 
-            logger = new Logger(modDir, fileName);
-            isDebug = enableDebug;
-        }
+    public void setDebug(bool debug)
+    {
+        isDebug = debug;
+    }
+    
+    public Nullable<Logger> Debug
+    {
+        get { return isDebug ? (Nullable<Logger>)logger : null; }
+        private set { }
+    }
 
-        public void setDebug(bool debug)
-        {
-            isDebug = debug;
-        }
-        
-        public Nullable<Logger> Debug
-        {
-            get { return isDebug ? (Nullable<Logger>)logger : null; }
-            private set { }
-        }
+    public Nullable<Logger> Info
+    {
+        get { return (Nullable<Logger>)logger; }
+        private set { }
+    }
 
-        public Nullable<Logger> Info
+    public Nullable<Logger> Warn
+    {
+        get 
         {
-            get { return (Nullable<Logger>)logger; }
-            private set { }
+            return (Nullable<Logger>)logger;
         }
+        private set { }
+    }
 
-        public Nullable<Logger> Warn
+    public Nullable<Logger> Error
+    {
+        get
         {
-            get 
-            {
-                return (Nullable<Logger>)logger;
-            }
-            private set { }
+            return (Nullable<Logger>)logger;
         }
-
-        public Nullable<Logger> Error
-        {
-            get
-            {
-                return (Nullable<Logger>)logger;
-            }
-            private set { }
-        }
+        private set { }
     }
 }

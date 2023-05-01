@@ -1,11 +1,10 @@
 using System.Collections.Generic;
 
-namespace MechAffinity.Data
+namespace MechAffinity.Data;
+
+public class TagUpdate
 {
-    public class TagUpdate
-    {
-        public List<string> addTags = new List<string>();
-        public List<string> removeTags = new List<string>();
-        public string selector = "";
-    }
+    public List<string> addTags = new();
+    public List<string> removeTags = new();
+    public string selector = "";
 }

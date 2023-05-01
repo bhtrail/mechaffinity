@@ -1,12 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace MechAffinity.Data
+namespace MechAffinity.Data;
+
+public class QuirkPool
 {
-    public class QuirkPool
-    {
-        public String tag = "";
-        public int quirksToPick = 0;
-        public List<string> quirksAvailable = new List<string>();
-    }
+    public String tag = "";
+    public int quirksToPick = 0;
+    public List<string> quirksAvailable = new();
 }

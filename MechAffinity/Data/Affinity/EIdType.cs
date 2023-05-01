@@ -1,9 +1,8 @@
-﻿namespace MechAffinity.Data
+﻿namespace MechAffinity.Data;
+
+public enum EIdType
 {
-    public enum EIdType
-    {
-        AssemblyVariant = 0,
-        ChassisId = 1,
-        PrefabId = 2
-    }
+    AssemblyVariant = 0,
+    ChassisId = 1,
+    PrefabId = 2
 }

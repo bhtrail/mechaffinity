@@ -1,7 +1,6 @@
-namespace MechAffinity.Data
+namespace MechAffinity.Data;
+
+public class LegacyData
 {
-    public class LegacyData
-    {
-        public bool debug_writeLegacyAffinityData = false;
-    }
+    public bool debug_writeLegacyAffinityData = false;
 }

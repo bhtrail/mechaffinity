@@ -1,8 +1,7 @@
-namespace MechAffinity.Data
+namespace MechAffinity.Data;
+
+public class PilotRestrictionCounter
 {
-    public class PilotRestrictionCounter
-    {
-        public PilotSelectRestrictions restriction = new PilotSelectRestrictions();
-        public int currentCount = 0;
-    }
+    public PilotSelectRestrictions restriction = new();
+    public int currentCount = 0;
 }

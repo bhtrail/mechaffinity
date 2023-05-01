@@ -1,8 +1,7 @@
-namespace MechAffinity.Data
+namespace MechAffinity.Data;
+
+public class PilotAffinityColour
 {
-    public class PilotAffinityColour
-    {
-        public string colour = "";
-        public int deploysRequired = 0;
-    }
+    public string colour = "";
+    public int deploysRequired = 0;
 }
