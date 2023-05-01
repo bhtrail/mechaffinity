@@ -1,80 +1,80 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net472</TargetFramework>
-    <LangVersion>11</LangVersion>
-    <Nullable>disable</Nullable>
-    <AssemblyTitle>MechAffinity</AssemblyTitle>
-    <Product>MechAffinity</Product>
-    <Copyright>Copyright © 2022</Copyright>
-    <AssemblyVersion>2.0.0.0</AssemblyVersion>
-    <FileVersion>2.0.0.0</FileVersion>
-    <OutputPath>bin\$(Configuration)\</OutputPath>
-    <AssemblySearchPaths>
-      $(ReferencePath);
-      {HintPathFromItem};
-	  $(BattleTechGameDir)\BattleTech_Data\Managed;
-	  $(BattleTechGameDir)\Mods\CustomComponents
-    </AssemblySearchPaths>
-	  <Configurations>Debug;Release;ReleaseNoCS;ReleaseNoLT</Configurations>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <DebugType>full</DebugType>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType>pdbonly</DebugType>
-    <DefineConstants>TRACE;USE_CS_CC;USE_LT</DefineConstants>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'ReleaseNoCS|AnyCPU' ">
-    <DefineConstants>TRACE</DefineConstants>
-    <Optimize>true</Optimize>
-    <DebugType>pdbonly</DebugType>
-    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'ReleaseNoLT|AnyCPU' ">
-    <DefineConstants>TRACE;USE_CS_CC</DefineConstants>
-    <Optimize>true</Optimize>
-    <DebugType>pdbonly</DebugType>
-  </PropertyGroup>
-  <PropertyGroup>
-    <!-- avoids IgnoresAccessChecksToAttribute warnings -->
-    <PublicizerRuntimeStrategies>Unsafe</PublicizerRuntimeStrategies>
-  </PropertyGroup>
-  <ItemGroup>
-    <PackageReference Include="Krafs.Publicizer" Version="2.2.1" />
-    <Publicize Include="Assembly-CSharp" />
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="HarmonyX" Version="2.10.1">
-      <PrivateAssets>all</PrivateAssets>
-      <ExcludeAssets>runtime</ExcludeAssets>
-    </PackageReference>
-    <Reference Include="Assembly-CSharp">
-    </Reference>
-    <Reference Include="Assembly-CSharp-firstpass">
-    </Reference>
-    <Reference Include="CustomComponents">
-    </Reference>
-    <Reference Include="CustomSalvage">
-    </Reference>
-    <Reference Include="LewdableTanks">
-    </Reference>
-    <Reference Include="Newtonsoft.Json">
-    </Reference>
-    <Reference Include="Unity.TextMeshPro, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-    </Reference>
-    <Reference Include="UnityEngine, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-    </Reference>
-    <Reference Include="UnityEngine.CoreModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-    </Reference>
-    <Reference Include="UnityEngine.UI, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-    </Reference>
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Remove="obj\ReleaseNoCS\.NETFramework,Version=v4.7.2.AssemblyAttributes.cs" />
-    <Compile Remove="obj\ReleaseNoLT\.NETFramework,Version=v4.7.2.AssemblyAttributes.cs" />
-  </ItemGroup>
+	<PropertyGroup>
+		<TargetFramework>net472</TargetFramework>
+		<LangVersion>11</LangVersion>
+		<Nullable>disable</Nullable>
+		<AssemblyTitle>MechAffinity</AssemblyTitle>
+		<Product>MechAffinity</Product>
+		<Copyright>Copyright © 2022</Copyright>
+		<AssemblyVersion>2.0.0.0</AssemblyVersion>
+		<FileVersion>2.0.0.0</FileVersion>
+		<OutputPath>bin\$(Configuration)\</OutputPath>
+		<AssemblySearchPaths>
+			$(ReferencePath);
+			{HintPathFromItem};
+			$(BattleTechGameDir)\BattleTech_Data\Managed;
+			$(BattleTechGameDir)\Mods\CustomComponents
+		</AssemblySearchPaths>
+		<Configurations>Debug;Release;ReleaseNoCS;ReleaseNoLT</Configurations>
+	</PropertyGroup>
+	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+		<DebugType>full</DebugType>
+	</PropertyGroup>
+	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+		<DebugType>pdbonly</DebugType>
+		<DefineConstants>TRACE;USE_CS_CC;USE_LT</DefineConstants>
+	</PropertyGroup>	
+	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'ReleaseNoCS|AnyCPU' ">
+		<DefineConstants>TRACE</DefineConstants>
+		<Optimize>true</Optimize>
+		<DebugType>pdbonly</DebugType>
+		<CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+	</PropertyGroup>
+	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'ReleaseNoLT|AnyCPU' ">
+		<DefineConstants>TRACE;USE_CS_CC</DefineConstants>
+		<Optimize>true</Optimize>
+		<DebugType>pdbonly</DebugType>
+	</PropertyGroup>
+	<PropertyGroup>
+		<!-- avoids IgnoresAccessChecksToAttribute warnings -->
+		<PublicizerRuntimeStrategies>Unsafe</PublicizerRuntimeStrategies>
+	</PropertyGroup>
+	<ItemGroup>
+		<PackageReference Include="Krafs.Publicizer" Version="2.2.1" />
+		<Publicize Include="Assembly-CSharp" />
+	</ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="HarmonyX" Version="2.10.1">
+			<PrivateAssets>all</PrivateAssets>
+			<ExcludeAssets>runtime</ExcludeAssets>
+		</PackageReference>
+		<Reference Include="Assembly-CSharp">
+		</Reference>
+		<Reference Include="Assembly-CSharp-firstpass">
+		</Reference>
+		<Reference Include="CustomComponents">
+		</Reference>
+		<Reference Include="CustomSalvage">
+		</Reference>
+		<Reference Include="LewdableTanks">
+		</Reference>
+		<Reference Include="Newtonsoft.Json">
+		</Reference>
+		<Reference Include="Unity.TextMeshPro, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+			<SpecificVersion>False</SpecificVersion>
+		</Reference>
+		<Reference Include="UnityEngine, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+			<SpecificVersion>False</SpecificVersion>
+		</Reference>
+		<Reference Include="UnityEngine.CoreModule, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+			<SpecificVersion>False</SpecificVersion>
+		</Reference>
+		<Reference Include="UnityEngine.UI, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+			<SpecificVersion>False</SpecificVersion>
+		</Reference>
+	</ItemGroup>
+	<ItemGroup>
+		<Compile Remove="obj\ReleaseNoCS\.NETFramework,Version=v4.7.2.AssemblyAttributes.cs" />
+		<Compile Remove="obj\ReleaseNoLT\.NETFramework,Version=v4.7.2.AssemblyAttributes.cs" />
+	</ItemGroup>
 </Project>

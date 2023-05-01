@@ -4,10 +4,7 @@ using System.Linq;
 using MechAffinity.Data;
 using BattleTech;
 using BattleTech.Data;
-
-#if USE_CS_CC
 using CustomComponents;
-#endif
 
 #if USE_CS_CC && USE_LT
     using LewdableTanks;
@@ -16,7 +13,7 @@ using CustomComponents;
 // ReSharper disable once CheckNamespace
 namespace MechAffinity;
 
-public class PilotAffinityManager: BaseEffectManager
+public class PilotAffinityManager : BaseEffectManager
 {
     private const string MaDeploymentStat = "MaDeployStat=";
     private const string MaDecayStat = "MaDecayStat=";
@@ -39,7 +36,7 @@ public class PilotAffinityManager: BaseEffectManager
     private Dictionary<string, List<AffinityLevel>> quirkAffinities;
     private Dictionary<string, List<AffinityLevel>> taggedAffinities;
     private Dictionary<string, AffinityLevel> globalAffinities;
-    
+
     private Dictionary<string, List<string>> pilotStatMap;
     private Dictionary<string, string> chassisPrefabLut;
     private Dictionary<string, string> prefabOverrides;
@@ -66,13 +63,13 @@ public class PilotAffinityManager: BaseEffectManager
 
     public void initialize(PilotAffinitySettings pilotAffinitySettings, List<AffinityDef> affinityDefs)
     {
-        if(hasInitialized) return;
+        if (hasInitialized) return;
         settings = pilotAffinitySettings;
         chassisAffinities = new Dictionary<string, List<AffinityLevel>>();
         quirkAffinities = new Dictionary<string, List<AffinityLevel>>();
         taggedAffinities = new Dictionary<string, List<AffinityLevel>>();
         globalAffinities = new Dictionary<string, AffinityLevel>();
-        
+
         prefabOverrides = new Dictionary<string, string>();
         chassisPrefabLut = new Dictionary<string, string>();
         levelDescriptors = new Dictionary<string, DescriptionHolder>();
@@ -82,7 +79,7 @@ public class PilotAffinityManager: BaseEffectManager
         overloads = new Dictionary<string, EIdType>();
         remappedIds = new Dictionary<string, string>();
         sharedClassAffinityCache = new Dictionary<WeightClass, int>();
-        
+
 
         foreach (var affinityDef in affinityDefs)
         {
@@ -94,7 +91,7 @@ public class PilotAffinityManager: BaseEffectManager
                     break;
                 case EAffinityDefType.Chassis:
                     var chassisSpecific = affinityDef.getChassisAffinity();
-                    Main.modLog.Info?.Write(" id:"+ chassisSpecific.id);
+                    Main.modLog.Info?.Write(" id:" + chassisSpecific.id);
                     foreach (string chassisName in chassisSpecific.chassisNames)
                     {
                         chassisAffinities.Add(chassisName, chassisSpecific.affinityLevels);
@@ -123,7 +120,7 @@ public class PilotAffinityManager: BaseEffectManager
                     break;
                 case EAffinityDefType.Quirk:
                     var quirkAffinity = affinityDef.getQuirkAffinity();
-                    Main.modLog.Info?.Write(" id:"+ quirkAffinity.id);
+                    Main.modLog.Info?.Write(" id:" + quirkAffinity.id);
                     foreach (string quirkName in quirkAffinity.quirkNames)
                     {
                         quirkAffinities.Add(quirkName, quirkAffinity.affinityLevels);
@@ -137,7 +134,7 @@ public class PilotAffinityManager: BaseEffectManager
                 case EAffinityDefType.Tag:
                     var tagged = affinityDef.getTaggedAffinity();
                     tagsWithAffinities.Add(tagged.tag);
-                    Main.modLog.Info?.Write(" id:"+ tagged.id);
+                    Main.modLog.Info?.Write(" id:" + tagged.id);
                     foreach (string chassisName in tagged.chassisNames)
                     {
                         taggedAffinities.Add($"{tagged.tag}={chassisName}", tagged.affinityLevels);
@@ -171,8 +168,8 @@ public class PilotAffinityManager: BaseEffectManager
                     break;
             }
         }
-        
-        Main.modLog.Info?.Write("chassisAffinities:"+ chassisAffinities.Count);
+
+        Main.modLog.Info?.Write("chassisAffinities:" + chassisAffinities.Count);
         Main.modLog.Info?.Write("taggedAffinities:" + taggedAffinities.Count);
         Main.modLog.Info?.Write("quirkAffinities:" + quirkAffinities.Count);
         Main.modLog.Info?.Write("globalAffinities:" + globalAffinities.Count);
@@ -204,7 +201,7 @@ public class PilotAffinityManager: BaseEffectManager
 
     public void addToChassisPrefabLut(MechDef mech)
     {
-        
+
         string variantId = getPrefabId(mech, EIdType.AssemblyVariant);
         string prefabId = getPrefabId(mech, EIdType.PrefabId);
         string chassisId = getPrefabId(mech, EIdType.ChassisId);
@@ -248,7 +245,7 @@ public class PilotAffinityManager: BaseEffectManager
             }
             else
             {
-                if(keypair.Key.StartsWith(MaDecayStat))
+                if (keypair.Key.StartsWith(MaDecayStat))
                 {
                     addtoPilotDecayMap(keypair.Key);
                 }
@@ -317,20 +314,20 @@ public class PilotAffinityManager: BaseEffectManager
         {
             return chassis.Description.Id;
         }
-        #if USE_CS_CC
+#if USE_CS_CC
             if (idType == EIdType.AssemblyVariant)
             {
                 if (chassis.Is<AssemblyVariant>(out var a) && !string.IsNullOrEmpty(a.PrefabID))
                     return a.PrefabID + "_" + chassis.Tonnage.ToString();
             }
-        #endif
+#endif
 
         return $"{chassis.PrefabIdentifier}_{chassis.Tonnage}";
     }
 
     private string getPrefabId(ChassisDef chassis, EIdType idType)
     {
-        #if USE_CS_CC && USE_LT
+#if USE_CS_CC && USE_LT
             if (chassis.IsVehicle())
             {
                 if (dataManager == null)
@@ -340,7 +337,7 @@ public class PilotAffinityManager: BaseEffectManager
                 VehicleChassisDef vehicle = dataManager.VehicleChassisDefs.Get(chassis.Description.Id);
                 return getPrefabId(vehicle, idType);
             }
-        #endif
+#endif
         string prefab = getPrefabIdInternal(chassis, idType);
         if (remappedIds.ContainsKey(prefab))
         {
@@ -356,16 +353,16 @@ public class PilotAffinityManager: BaseEffectManager
         {
             return chassis.Description.Id;
         }
-        #if USE_CS_CC && USE_LT
+#if USE_CS_CC && USE_LT
             if (idType == EIdType.AssemblyVariant)
             {
                 if (chassis.Is<VAssemblyVariant>(out var a) && !string.IsNullOrEmpty(a.PrefabID))
                     return a.PrefabID + "_" + chassis.Tonnage.ToString();
             }
-        #endif
+#endif
         return $"{chassis.PrefabIdentifier}_{chassis.Tonnage}";
     }
-    
+
     private string getPrefabId(VehicleChassisDef chassis, EIdType idType)
     {
         string prefab = getPrefabIdInternal(chassis, idType);
@@ -384,7 +381,7 @@ public class PilotAffinityManager: BaseEffectManager
 
     private string getPrefabId(MechDef mech, EIdType idType)
     {
-        #if USE_CS_CC && USE_LT
+#if USE_CS_CC && USE_LT
             if (mech.IsVehicle())
             {
                 if (dataManager == null)
@@ -394,7 +391,7 @@ public class PilotAffinityManager: BaseEffectManager
                 VehicleDef vehicle = dataManager.VehicleDefs.Get(mech.Description.Id);
                 return getPrefabId(vehicle, idType);
             }
-        #endif
+#endif
         return getPrefabId(mech.Chassis, idType);
     }
 
@@ -440,18 +437,18 @@ public class PilotAffinityManager: BaseEffectManager
     private List<string> getDefaultEquipment(MechDef mechDef)
     {
         List<string> defaults = new();
-        #if USE_CS_CC
-            if (settings.treatDefaultsAsFixed)
+
+        if (settings.treatDefaultsAsFixed)
+        {
+            foreach (var component in mechDef.Inventory)
             {
-                foreach (var component in mechDef.Inventory)
+                if (component.Def.CCFlags().Default)
                 {
-                    if (component.Flags<CCFlags>().Default)
-                    {
-                        defaults.Add(component.ComponentDefID);
-                    }
+                    defaults.Add(component.ComponentDefID);
                 }
             }
-        #endif
+        }
+
         return defaults;
     }
 
@@ -597,7 +594,7 @@ public class PilotAffinityManager: BaseEffectManager
     }
 
     private string getAffinityStatName(UnitResult result)
-    {    
+    {
         string prefabId = getPrefabId(result.mech, EIdType.ChassisId);
         if (!overloads.ContainsKey(prefabId))
         {
@@ -671,7 +668,7 @@ public class PilotAffinityManager: BaseEffectManager
             }
         }
         return getStatDeploymentCountWithMech(statName) + getTaggedDeploymentCountWithMech(actor.GetPilot(), prefab);
-        
+
     }
 
     public int getDeploymentCountWithMech(Pilot pilot, MechDef mechDef)
@@ -686,7 +683,7 @@ public class PilotAffinityManager: BaseEffectManager
             }
         }
         string statName = getAffinityStatName(pilot, prefab);
-        return getStatDeploymentCountWithMech(statName) + getTaggedDeploymentCountWithMech(pilot, prefab) + 
+        return getStatDeploymentCountWithMech(statName) + getTaggedDeploymentCountWithMech(pilot, prefab) +
                getPilotDeployBonusByTag(pilot, mechDef.Chassis.weightClass, true);
     }
 
@@ -711,14 +708,14 @@ public class PilotAffinityManager: BaseEffectManager
             }
             else
             {
-                if(decayCount >= settings.missionsBeforeDecay)
+                if (decayCount >= settings.missionsBeforeDecay)
                 {
                     return true;
                 }
             }
         }
         return false;
-        
+
     }
 
     private void decayAffinties(string decayStat)
@@ -817,7 +814,7 @@ public class PilotAffinityManager: BaseEffectManager
         return false;
     }
 
-    public void incrementDeployCountWithMech(string statName ,int incrementBy=1, bool decay=true)
+    public void incrementDeployCountWithMech(string statName, int incrementBy = 1, bool decay = true)
     {
         if (companyStats == null)
         {
@@ -831,7 +828,7 @@ public class PilotAffinityManager: BaseEffectManager
         if (companyStats.ContainsStatistic(statName))
         {
             int stat = companyStats.GetValue<int>(statName);
-            stat+= incrementBy;
+            stat += incrementBy;
             stat = Math.Min(stat, settings.maxAffinityPoints);
             companyStats.Set<int>(statName, stat);
         }
@@ -1000,7 +997,7 @@ public class PilotAffinityManager: BaseEffectManager
                 ret.Add($"- <color=#de0202>{level.levelName}</color> ({deployCount}/{level.missionsRequired})");
             }
         }
-        
+
         return ret;
     }
 
@@ -1010,7 +1007,7 @@ public class PilotAffinityManager: BaseEffectManager
         Dictionary<string, List<string>> affinites = new();
         if (pilotStatMap.ContainsKey(pilotId))
         {
-            foreach(string chassisId in pilotStatMap[pilotId])
+            foreach (string chassisId in pilotStatMap[pilotId])
             {
                 List<string> levels;
                 if (settings.showAllPilotAffinities)
@@ -1050,7 +1047,7 @@ public class PilotAffinityManager: BaseEffectManager
             }
         }
         string ret = "\n";
-        foreach(KeyValuePair<string, List<string>> level in affinites)
+        foreach (KeyValuePair<string, List<string>> level in affinites)
         {
             string descript = levelDescriptors[level.Key].toString(false);
             string mechs = string.Join("\n", level.Value);
@@ -1261,7 +1258,7 @@ public class PilotAffinityManager: BaseEffectManager
         List<string> possibleTags = getPossibleTaggedAffinities(actor);
         getDeploymentBonus(deployCount, chassisPrefab, statName, possibleQuirks, possibleTags, out bonuses, out effects);
     }
-    
+
 
     public void AddSharedAffinity(List<Pilot> pilots)
     {
@@ -1288,7 +1285,7 @@ public class PilotAffinityManager: BaseEffectManager
                             Main.modLog.Warn?.Write($"Failed to parse count from tag: {tag}");
                             continue;
                         }
-                        
+
                         Main.modLog.Info?.Write($"Adding shared deploy bonus of: {deployCount} for weight class: {weightClass.ToString()}");
                         if (!sharedClassAffinityCache.ContainsKey(weightClass))
                         {
@@ -1312,7 +1309,7 @@ public class PilotAffinityManager: BaseEffectManager
     {
         int deployCount = 0;
         int deployBonus = 0;
-        
+
         if (pilot != null)
         {
             List<string> tags = pilot.pilotDef.PilotTags.ToList();
@@ -1320,7 +1317,7 @@ public class PilotAffinityManager: BaseEffectManager
             {
                 tags.Add(settings.debugForceTag);
             }
-            foreach(string tag in tags)
+            foreach (string tag in tags)
             {
                 if (tag.StartsWith(MaPilotDeployCountTag))
                 {
@@ -1377,7 +1374,7 @@ public class PilotAffinityManager: BaseEffectManager
 
     public int getPilotDeployBonusByTag(AbstractActor actor, bool isAi)
     {
-        
+
         Pilot pilot = actor.GetPilot();
         Mech mech = actor as Mech;
         WeightClass weightClass = WeightClass.ASSAULT;
@@ -1509,7 +1506,7 @@ public class PilotAffinityManager: BaseEffectManager
             return false;
         }
         int daysSinceLastDecay = companyStats.GetValue<int>(statName);
-        
+
         daysSinceLastDecay++;
         daysSinceLastDecay %= modulator;
         companyStats.Set<int>(statName, daysSinceLastDecay);
@@ -1521,7 +1518,7 @@ public class PilotAffinityManager: BaseEffectManager
         return false;
     }
 
-    
+
     public string getMechChassisAffinityDescription(MechDef mech)
     {
         return getMechChassisAffinityDescription(mech.Chassis, getDefaultEquipment(mech));
