@@ -4,7 +4,6 @@ using BattleTech.UI;
 using BattleTech.StringInterpolation;
 using BattleTech.UI.TMProWrapper;
 using Localize;
-using Harmony;
 using System.Reflection;
 using UnityEngine;
 using UnityEngine.UI;
@@ -21,14 +20,20 @@ namespace MechAffinity.Patches
             return Main.settings.enablePilotQuirks;
         }
         
-        public static void Prefix(Contract __instance, SimGameState sim)
+        public static void Prefix(ref bool __runOriginal, Contract __instance, SimGameState sim)
         {
-            Main.modLog.LogMessage($"Contract Finalize Killed Pilots Starting");
+            
+            if (!__runOriginal)
+            {
+                return;
+            }
+            
+            Main.modLog.Info?.Write($"Contract Finalize Killed Pilots Starting");
         }
         
         public static void Postfix(Contract __instance, SimGameState sim)
         {
-            Main.modLog.LogMessage($"Contract Finalize Killed Pilots done");
+            Main.modLog.Info?.Write($"Contract Finalize Killed Pilots done");
         }
     }
     
@@ -69,8 +74,8 @@ namespace MechAffinity.Patches
 
                 if (payoutChanged)
                 {
-                    Main.modLog.LogMessage($"Payout Changed by Quirk Effects: f:{FlatBonus}, P: {PercentageBonus}, New Payout: {Payout}");
-                    Traverse.Create(__instance).Property("MoneyResults").SetValue(Payout);
+                    Main.modLog.Info?.Write($"Payout Changed by Quirk Effects: f:{FlatBonus}, P: {PercentageBonus}, New Payout: {Payout}");
+                    __instance.MoneyResults = Payout;
                 }
                 
                 PilotQuirkManager.Instance.ResetEffectCache();
@@ -91,7 +96,7 @@ namespace MechAffinity.Patches
             int additionalSalvage = 0;
             int additionalSalvagePicks = 0;
             
-            Main.modLog.LogMessage($"Generating Salvage picks Start: {__instance.FinalPrioritySalvageCount}/{__instance.FinalSalvageCount}");
+            Main.modLog.Info?.Write($"Generating Salvage picks Start: {__instance.FinalPrioritySalvageCount}/{__instance.FinalSalvageCount}");
 
             foreach (var unitResult in __instance.PlayerUnitResults)
             {
@@ -100,18 +105,18 @@ namespace MechAffinity.Patches
 
             if (additionalSalvage != 0)
             {
-                Traverse.Create(__instance).Property("FinalSalvageCount").SetValue((int) Math.Max(
-                    __instance.FinalSalvageCount + additionalSalvage, 0));
+                __instance.FinalSalvageCount = Math.Max(
+                    __instance.FinalSalvageCount + additionalSalvage, 0);
             }
 
             if (additionalSalvagePicks != 0)
             {
                 // BT Salavage Screen UI cannot handle more than 7 priority picks, do not allow more
-                Traverse.Create(__instance).Property("FinalPrioritySalvageCount").SetValue((int) Math.Max(
-                    Math.Min(__instance.FinalPrioritySalvageCount + additionalSalvagePicks, 7), 0));
+                __instance.FinalPrioritySalvageCount = Math.Max(
+                    Math.Min(__instance.FinalPrioritySalvageCount + additionalSalvagePicks, 7), 0);
             }
             
-            Main.modLog.LogMessage($"Generating Salvage picks Finish: {__instance.FinalPrioritySalvageCount}/{__instance.FinalSalvageCount}");
+            Main.modLog.Info?.Write($"Generating Salvage picks Finish: {__instance.FinalPrioritySalvageCount}/{__instance.FinalSalvageCount}");
         }
     }
 }

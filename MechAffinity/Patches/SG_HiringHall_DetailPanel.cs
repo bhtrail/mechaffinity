@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Reflection;
-using Harmony;
 using BattleTech;
 using BattleTech.UI;
 
@@ -15,25 +14,31 @@ namespace MechAffinity.Patches
             return Main.settings.enablePilotQuirks;
         }
 
-        public static void Prefix(Pilot p)
+        public static void Prefix(ref bool __runOriginal, Pilot p)
         {
+            
+            if (!__runOriginal)
+            {
+                return;
+            }
+            
             origDesc = p.pilotDef.Description.Details;
 
             //because, #HBSWhy
             if (p.pilotDef.Description.Id.StartsWith("pilot_ronin") || p.pilotDef.Description.Id.StartsWith("pilot_backer"))
             {
-                Traverse.Create(p.pilotDef.Description).Property("Details").SetValue(origDesc + PilotQuirkManager.Instance.getRoninHiringHallDescription(p));
+                p.pilotDef.Description.Details = origDesc + PilotQuirkManager.Instance.getRoninHiringHallDescription(p);
             }
             else
             {
-                Traverse.Create(p.pilotDef.Description).Property("Details").SetValue(origDesc + PilotQuirkManager.Instance.getRegularHiringHallDescription(p));
+                p.pilotDef.Description.Details = origDesc + PilotQuirkManager.Instance.getRegularHiringHallDescription(p);
             }
 
         }
 
         public static void Postfix(Pilot p)
         {
-            Traverse.Create(p.pilotDef.Description).Property("Details").SetValue(origDesc);
+            p.pilotDef.Description.Details = origDesc;
         }
     }
 }

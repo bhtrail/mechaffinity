@@ -1,5 +1,4 @@
-﻿using Harmony;
-using BattleTech;
+﻿using BattleTech;
 
 namespace MechAffinity.Patches
 {
@@ -19,7 +18,7 @@ namespace MechAffinity.Patches
             {
                 __result = PilotQuirkManager.Instance.hasImmortality(__instance);
             }
-            Main.modLog.DebugMessage($"Pilot: {__instance.Description.Callsign}, Immortal: {__result}");
+            Main.modLog.Debug?.Write($"Pilot: {__instance.Description.Callsign}, Immortal: {__result}");
         }
     }
 }

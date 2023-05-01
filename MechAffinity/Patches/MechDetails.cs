@@ -4,7 +4,6 @@ using BattleTech.UI;
 using BattleTech.StringInterpolation;
 using BattleTech.UI.TMProWrapper;
 using Localize;
-using Harmony;
 using System.Reflection;
 using UnityEngine;
 using UnityEngine.UI;
@@ -15,8 +14,6 @@ namespace MechAffinity.Patches
     [HarmonyPatch(typeof(MechDetails), "SetDescriptions")]
     class MechDetails_SetDescriptions
     {
-        private static FieldInfo descriptor = AccessTools.Field(typeof(MechDetails), "mechDescription");
-        private static FieldInfo mechdef = AccessTools.Field(typeof(MechDetails), "activeMech");
         
         public static bool Prepare()
         {
@@ -24,19 +21,19 @@ namespace MechAffinity.Patches
         }
         public static void Postfix(MechDetails __instance)
         {
-            MechDef mech = (MechDef)mechdef.GetValue(__instance);
+            MechDef mech = __instance.activeMech;
             if (mech != null)
             {
-                Main.modLog.LogMessage($"finding mechdef affinity descriptor for {mech.Description.UIName}");
+                Main.modLog.Info?.Write($"finding mechdef affinity descriptor for {mech.Description.UIName}");
                 string affinityDescriptors = PilotAffinityManager.Instance.getMechChassisAffinityDescription(mech);
-                //Main.modLog.LogMessage(affinityDescriptors);
-                LocalizableText bioText = (LocalizableText)descriptor.GetValue(__instance);
-                bioText.AppendTextAndRefresh(affinityDescriptors, (object[])Array.Empty<object>());
-                descriptor.SetValue(__instance, bioText);           
+                //Main.modLog.Info?.Write(affinityDescriptors);
+                LocalizableText bioText = __instance.mechDescription;
+                bioText.AppendTextAndRefresh(affinityDescriptors, Array.Empty<object>());
+                __instance.mechDescription = bioText;           
             }
             else
             {
-                Main.modLog.LogMessage("mechdef is null!");
+                Main.modLog.Info?.Write("mechdef is null!");
             }
         }
     }

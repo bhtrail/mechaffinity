@@ -3,12 +3,11 @@ using System.IO;
 
 namespace MechAffinity.Data
 {
-    class Logger
+    struct Logger
     {
         private static StreamWriter logStream;
-        private bool enableDebug = false;
 
-        public Logger(string modDir, string fileName, bool enableDebug)
+        public Logger(string modDir, string fileName)
         {
             string filePath = Path.Combine(modDir, $"{fileName}.log");
             if (File.Exists(filePath))
@@ -17,36 +16,21 @@ namespace MechAffinity.Data
             }
 
             logStream = File.AppendText(filePath);
-            logStream.AutoFlush = true;
 
-            this.enableDebug = enableDebug;
         }
 
-        public void DebugMessage(string message)
-        {
-            if (enableDebug)
-            {
-                string now = DateTime.UtcNow.ToString("s", System.Globalization.CultureInfo.InvariantCulture);
-                logStream.WriteLine($"DEBUG: {now} - {message}");
-            }
-        }
-
-        public void LogMessage(string message)
+        public void Write(string message)
         {
             string now = DateTime.UtcNow.ToString("s", System.Globalization.CultureInfo.InvariantCulture);
-            logStream.WriteLine($"INFO: {now} - {message}");
+            logStream.WriteLine($"{now} - {message}");
+            logStream.Flush();
         }
-
-        public void LogError(string message)
-        {
-            string now = DateTime.UtcNow.ToString("s", System.Globalization.CultureInfo.InvariantCulture);
-            logStream.WriteLine($"ERROR: {now} - {message}");
-        }
-
-        public void LogException(Exception error)
+        
+        public void Write(Exception error)
         {
             string now = DateTime.UtcNow.ToString("s", System.Globalization.CultureInfo.InvariantCulture);
             logStream.WriteLine($"CRITICAL: {now} - {error}");
+            logStream.Flush();
         }
 
     }

@@ -4,7 +4,6 @@ using BattleTech.UI;
 using BattleTech.StringInterpolation;
 using BattleTech.UI.TMProWrapper;
 using Localize;
-using Harmony;
 using System.Reflection;
 using UnityEngine;
 using UnityEngine.UI;
@@ -20,20 +19,20 @@ namespace MechAffinity.Patches
         {
             return Main.settings.enablePilotAffinity;
         }
-        public static void Postfix(MechLabStockInfoPopup __instance, MechDef def, LocalizableText ___descriptionText)
+        public static void Postfix(MechLabStockInfoPopup __instance, MechDef def)
         {
             if (def != null)
             {
-                Main.modLog.LogMessage($"finding mechdef affinity descriptor for {def.Description.UIName}");
+                Main.modLog.Info?.Write($"finding mechdef affinity descriptor for {def.Description.UIName}");
                 string affinityDescriptors = PilotAffinityManager.Instance.getMechChassisAffinityDescription(def);
-                //Main.modLog.LogMessage(affinityDescriptors);
-                ___descriptionText.AppendTextAndRefresh(affinityDescriptors, (object[])Array.Empty<object>());
+                //Main.modLog.Info?.Write(affinityDescriptors);
+                __instance.descriptionText.AppendTextAndRefresh(affinityDescriptors, (object[])Array.Empty<object>());
                 //descriptor.SetValue(__instance, bioText);
                 __instance.ForceRefreshImmediate();
             }
             else
             {
-                Main.modLog.LogMessage("mechdef is null!");
+                Main.modLog.Info?.Write("mechdef is null!");
             }
         }
     }

@@ -7,7 +7,6 @@ using BattleTech;
 using BattleTech.UI;
 using BattleTech.UI.TMProWrapper;
 using BattleTech.UI.Tooltips;
-using Harmony;
 using MechAffinity;
 using MechAffinity.Data;
 using SVGImporter;
@@ -17,7 +16,7 @@ namespace MechAffinity.Patches
     [HarmonyPatch(typeof(SGBarracksRosterSlot), "Refresh")]
     public static class SGBarracksRosterSlot_Refresh_Patch
     {
-        public static void Postfix(SGBarracksRosterSlot __instance, UIColorRefTracker ___pilotTypeBackground, SVGImage ___roninIcon, HBSTooltip ___RoninTooltip, LocalizableText ___expertise)
+        public static void Postfix(SGBarracksRosterSlot __instance)
         {
             if (__instance.Pilot == null)
                 return;
@@ -45,9 +44,9 @@ namespace MechAffinity.Patches
             {
                 if (pilotIcon.HasColour())
                 {
-                    Main.modLog.LogMessage("Setting Pilot Icon Colour!");
-                    ___pilotTypeBackground.SetUIColor(UIColor.Custom);
-                    ___pilotTypeBackground.OverrideWithColor(pilotIcon.GetColor());
+                    Main.modLog.Debug?.Write("Setting Pilot Icon Colour!");
+                    __instance.pilotTypeBackground.SetUIColor(UIColor.Custom);
+                    __instance.pilotTypeBackground.OverrideWithColor(pilotIcon.GetColor());
                 }
                 
             }

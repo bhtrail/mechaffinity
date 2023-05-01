@@ -2,7 +2,6 @@
 using System.Reflection;
 using BattleTech;
 using BattleTech.UI;
-using Harmony;
 
 namespace MechAffinity.Patches
 {
@@ -17,25 +16,31 @@ namespace MechAffinity.Patches
             return Main.settings.enablePilotQuirks;
         }
         
-        public static void Prefix(SGShipModuleUpgradeViewPopulator __instance, ShipModuleUpgrade upgrade)
+        public static void Prefix(ref bool __runOriginal, SGShipModuleUpgradeViewPopulator __instance, ShipModuleUpgrade upgrade)
         {
+            if (!__runOriginal)
+            {
+                return;
+            }
+            
             var sim = UnityGameInstance.BattleTechGame.Simulation;
-            float multiplier = PilotQuirkManager.Instance.getArgoUpgradeCostModifier(sim.PilotRoster.ToList(),
+            float multiplier = PilotQuirkManager.Instance.getArgoUpgradeCostModifier(sim.PilotRoster.rootList,
                 upgrade.Description.Id, false);
-            float upkeepMultiplier = PilotQuirkManager.Instance.getArgoUpgradeCostModifier(sim.PilotRoster.ToList(),
+            float upkeepMultiplier = PilotQuirkManager.Instance.getArgoUpgradeCostModifier(sim.PilotRoster.rootList,
                 upgrade.Description.Id, true);
 
             originalCost = upgrade.PurchaseCost;
             originalUpkeep = upgrade.AdditionalCost;
 
-            Traverse.Create(upgrade).Property("PurchaseCost").SetValue((int)(originalCost * multiplier));
-            Traverse.Create(upgrade).Property("AdditionalCost").SetValue((int)(originalUpkeep * upkeepMultiplier));
+            upgrade.PurchaseCost = (int)(originalCost * multiplier);
+            upgrade.AdditionalCost = (int)(originalUpkeep * upkeepMultiplier);
+
         }
         
         public static void Postfix(ShipModuleUpgrade upgrade)
         {
-            Traverse.Create(upgrade).Property("PurchaseCost").SetValue(originalCost);
-            Traverse.Create(upgrade).Property("AdditionalCost").SetValue(originalUpkeep);
+            upgrade.PurchaseCost = originalCost;
+            upgrade.AdditionalCost = originalUpkeep;
         }
     }
 }

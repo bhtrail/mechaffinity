@@ -1,12 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.IO;
 using Newtonsoft.Json;
 using MechAffinity.Data;
-using Harmony;
 using System.Reflection;
 using BattleTech;
 using Newtonsoft.Json.Linq;
@@ -19,7 +15,7 @@ namespace MechAffinity
         private const string LegacyFilePath = "settings.legacy.json";
         private const string PilotSelectSettingsFilePath = "pilotselectsettings.json";
         
-        internal static Logger modLog;
+        internal static DeferringLogger modLog;
         internal static Settings settings;
         internal static PilotSelectSettings pilotSelectSettings = new PilotSelectSettings();
         internal static string modDir;
@@ -33,20 +29,20 @@ namespace MechAffinity
             {
                 foreach (var customResource in customResources)
                 {
-                    modLog.LogMessage("customResource:" + customResource.Key);
+                    modLog.Info?.Write("customResource:" + customResource.Key);
                     if (customResource.Key == AffinitiesDefinitionTypeName)
                     {
                         foreach (var affinityDefPath in customResource.Value)
                         {
                             try
                             {
-                                modLog.LogMessage("Path:" + affinityDefPath.Value.FilePath);
+                                modLog.Info?.Write("Path:" + affinityDefPath.Value.FilePath);
                                 AffinityDef affinityDef = JsonConvert.DeserializeObject<AffinityDef>(File.ReadAllText(affinityDefPath.Value.FilePath));
                                 affinityDefs.Add(affinityDef);
                             }
                             catch (Exception ex)
                             {
-                                modLog.LogException(ex);
+                                modLog.Error?.Write(ex);
                             }
                         }
                     }
@@ -56,13 +52,13 @@ namespace MechAffinity
                         {
                             try
                             {
-                                modLog.LogMessage("Path:" + quirkDefPath.Value.FilePath);
+                                modLog.Info?.Write("Path:" + quirkDefPath.Value.FilePath);
                                 PilotQuirk quirkDef = JsonConvert.DeserializeObject<PilotQuirk>(File.ReadAllText(quirkDefPath.Value.FilePath));
                                 pilotQuirks.Add(quirkDef);
                             }
                             catch (Exception ex)
                             {
-                                modLog.LogException(ex);
+                                modLog.Error?.Write(ex);
                             }
                         }
                     }
@@ -80,7 +76,7 @@ namespace MechAffinity
             }
             catch (Exception ex)
             {
-                modLog.LogException(ex);
+                modLog.Error?.Write(ex);
             }
         }
 
@@ -97,7 +93,7 @@ namespace MechAffinity
         {
 
             modDir = modDirectory;
-            modLog = new Logger(modDir, "MechAffinity", true);
+            modLog = new DeferringLogger(modDir, "MechAffinity", true);
 
             var settingsData = JObject.Parse(File.ReadAllText($"{modDir}/{SettingsFilePath}"));
             JToken version;
@@ -106,6 +102,7 @@ namespace MechAffinity
             //if we fail to read settings it is useless to proceed. Better notify ModTek instead, by allowing the exception
             // to be raised
             settings = JsonConvert.DeserializeObject<Settings>(File.ReadAllText($"{modDir}/{SettingsFilePath}"));
+            modLog.setDebug(settings.debug);
 
             if (settings.enablePilotSelect)
             {
@@ -121,12 +118,11 @@ namespace MechAffinity
                 }
                 catch (Exception ex)
                 {
-                    modLog.LogException(ex);
+                    modLog.Error?.Write(ex);
                 }
             }
-
-            var harmony = HarmonyInstance.Create("ca.jwolf.MechAffinity");
-            harmony.PatchAll(Assembly.GetExecutingAssembly());
+            
+            Harmony.CreateAndPatchAll(Assembly.GetExecutingAssembly(), "ca.jwolf.MechAffinity");
 
         }
     }

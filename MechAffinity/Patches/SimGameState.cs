@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Harmony;
 using BattleTech;
 using BattleTech.Save;
 using BattleTech.UI.Tooltips;
@@ -28,7 +27,7 @@ namespace MechAffinity.Patches
                 PilotAffinityManager.Instance.setCompanyStats(__instance.CompanyStats);
                 PilotAffinityManager.Instance.setDataManager(__instance.DataManager);
                 
-                List<MechDef> mechs = __instance.DataManager.MechDefs.Select(pair => pair.Value).ToList();
+                var mechs = __instance.DataManager.MechDefs.Select(pair => pair.Value);
                 foreach (MechDef mech in mechs)
                 {
                     PilotAffinityManager.Instance.addToChassisPrefabLut(mech);
@@ -37,7 +36,7 @@ namespace MechAffinity.Patches
             if (Main.settings.enablePilotQuirks)
             {
                 PilotQuirkManager.Instance.setCompanyStats(__instance.CompanyStats);
-                foreach (Pilot pilot in __instance.PilotRoster.ToList())
+                foreach (Pilot pilot in __instance.PilotRoster.rootList)
                 {
                     PilotQuirkManager.Instance.proccessPilot(pilot.pilotDef, true);
                     pilot.FromPilotDef(pilot.pilotDef);
@@ -46,6 +45,8 @@ namespace MechAffinity.Patches
                 PilotQuirkManager.Instance.proccessPilot(__instance.Commander.pilotDef, true);
                 __instance.Commander.FromPilotDef(__instance.Commander.pilotDef);
                 PilotQuirkManager.Instance.forceMoraleInstanced();
+                PilotQuirkManager.Instance.BlockFinanceScreenUpdate = false;
+                PilotQuirkManager.Instance.ResetArgoCostCache();
             }
 
             if (Main.settings.enableMonthlyTechAdjustments)
@@ -74,7 +75,7 @@ namespace MechAffinity.Patches
                 PilotAffinityManager.Instance.setCompanyStats(__instance.CompanyStats);
                 PilotAffinityManager.Instance.setDataManager(__instance.DataManager);
                 
-                List<MechDef> mechs = __instance.DataManager.MechDefs.Select(pair => pair.Value).ToList();
+                var mechs = __instance.DataManager.MechDefs.Select(pair => pair.Value);
                 foreach (MechDef mech in mechs)
                 {
                     PilotAffinityManager.Instance.addToChassisPrefabLut(mech);
@@ -133,8 +134,14 @@ namespace MechAffinity.Patches
         {
             return Main.settings.enablePilotAffinity;
         }
-        public static void Prefix(SimGameState __instance)
+        public static void Prefix(ref bool __runOriginal, SimGameState __instance)
         {
+            
+            if (!__runOriginal)
+            {
+                return;
+            }
+            
             if (__instance.CompletedContract != null)
             {
                 List<UnitResult> results = __instance.CompletedContract.PlayerUnitResults;
@@ -157,11 +164,21 @@ namespace MechAffinity.Patches
     [HarmonyPatch(typeof(SimGameState), "OnDayPassed")]
     class SimGameState_OnDayPassed
     {
+        public static void Prefix(ref bool __runOriginal, SimGameState __instance)
+        {
+
+            if (!__runOriginal)
+            {
+                return;
+            }
+            
+            PilotQuirkManager.Instance.BlockFinanceScreenUpdate = true;
+        }
+
         public static void Postfix(SimGameState __instance)
         {
-            List<Pilot> pilotList = new List<Pilot>((IEnumerable<Pilot>)__instance.PilotRoster);
-            pilotList.Add(__instance.Commander);
-            foreach (Pilot pilot in pilotList)
+            int totalStolen = 0;
+            foreach (Pilot pilot in __instance.PilotRoster.rootList)
             {
                 if (Main.settings.enablePilotAffinity)
                 {
@@ -169,15 +186,38 @@ namespace MechAffinity.Patches
                     if (decayed)
                     {
                         __instance.RoomManager.ShipRoom.AddEventToast(new Text(
-                            string.Format("{0} affinities decayed!", (object)pilot.Callsign),
-                            (object[])Array.Empty<object>()));
+                            string.Format("{0} affinities decayed!", pilot.Callsign),
+                            Array.Empty<object>()));
                     }
                 }
 
                 if (Main.settings.enablePilotQuirks)
                 {
-                    PilotQuirkManager.Instance.stealAmount(pilot, __instance);
+                   totalStolen += PilotQuirkManager.Instance.stealAmount(pilot, __instance);
                 }
+            }
+            // commander is not part of the roaster, adding them to the list of pilots to do in the above loop
+            // is more expensive than to just repeat this code here
+            if (Main.settings.enablePilotAffinity)
+            {
+                bool decayed = PilotAffinityManager.Instance.onSimDayElapsed(__instance.Commander);
+                if (decayed)
+                {
+                    __instance.RoomManager.ShipRoom.AddEventToast(new Text(
+                        string.Format("{0} affinities decayed!", __instance.Commander.Callsign),
+                        Array.Empty<object>()));
+                }
+            }
+
+            if (Main.settings.enablePilotQuirks)
+            {
+                totalStolen += PilotQuirkManager.Instance.stealAmount(__instance.Commander, __instance);
+            }
+
+            if (totalStolen != 0)
+            {
+                PilotQuirkManager.Instance.BlockFinanceScreenUpdate = true;
+                __instance.AddFunds(totalStolen, null, true);
             }
         }
     }
@@ -222,10 +262,17 @@ namespace MechAffinity.Patches
         {
             return Main.settings.enablePilotQuirks;
         }
-        public static void Prefix(SimGameState __instance, PilotDef def, bool updatePilotDiscardPile = false)
+        public static void Prefix(ref bool __runOriginal, SimGameState __instance, PilotDef def, bool updatePilotDiscardPile = false)
         {
+            
+            if (!__runOriginal)
+            {
+                return;
+            }
+            
             if (def != null)
             {
+                PilotQuirkManager.Instance.ResetArgoCostCache();
                 PilotQuirkManager.Instance.proccessPilot(def, true);
             }
         }
@@ -239,8 +286,14 @@ namespace MechAffinity.Patches
         {
             return Main.settings.enablePilotQuirks;
         }
-        public static bool Prefix(SimGameState __instance, Pilot p, ref bool __result)
+        public static void Prefix(ref bool __runOriginal, SimGameState __instance, Pilot p, ref bool __result)
         {
+            
+            if (!__runOriginal)
+            {
+                return;
+            }
+            
             if (p != null && (__instance.PilotRoster.Contains(p)))
             {
                 PilotDef def = p.pilotDef;
@@ -249,15 +302,16 @@ namespace MechAffinity.Patches
                     // if the pilot is supposed to be killed, but is immortal, dont kill them
                     if (PilotQuirkManager.Instance.hasImmortality(def))
                     {
-                        Main.modLog.LogMessage($"Preventing death of pilot: {def.Description.Callsign}");
+                        Main.modLog.Info?.Write($"Preventing death of pilot: {def.Description.Callsign}");
                         __result = true;
-                        return false;
+                        __runOriginal = false;
+                        return;
                     }
+                    PilotQuirkManager.Instance.ResetArgoCostCache();
                     PilotQuirkManager.Instance.proccessPilot(def, false);
                 }
             }
-
-            return true;
+            
         }
     }
     
@@ -268,13 +322,20 @@ namespace MechAffinity.Patches
         {
             return Main.settings.enablePilotQuirks;
         }
-        public static void Prefix(SimGameState __instance, Pilot p)
+        public static void Prefix(ref bool __runOriginal, SimGameState __instance, Pilot p)
         {
+            
+            if (!__runOriginal)
+            {
+                return;
+            }
+            
             if (p != null)
             {
                 PilotDef def = p.pilotDef;
                 if (def != null)
                 {
+                    PilotQuirkManager.Instance.ResetArgoCostCache();
                     PilotQuirkManager.Instance.proccessPilot(def, false);
                 }
             }
@@ -291,17 +352,23 @@ namespace MechAffinity.Patches
             return Main.settings.enablePilotQuirks;
         }
         
-        public static void Prefix(SimGameState __instance, bool refund)
+        public static void Prefix(ref bool __runOriginal, SimGameState __instance, bool refund)
         {
+            
+            if (!__runOriginal)
+            {
+                return;
+            }
+            
             ShipModuleUpgrade shipModuleUpgrade = __instance.DataManager.ShipUpgradeDefs.Get(__instance.CurrentUpgradeEntry.upgradeID);
 
-            float multiplier = PilotQuirkManager.Instance.getArgoUpgradeCostModifier(__instance.PilotRoster.ToList(),
+            float multiplier = PilotQuirkManager.Instance.getArgoUpgradeCostModifier(__instance.PilotRoster.rootList,
                 shipModuleUpgrade.Description.Id, false);
             
             if (refund)
             {
                 originalCost = shipModuleUpgrade.PurchaseCost;
-                Traverse.Create(shipModuleUpgrade).Property("PurchaseCost").SetValue((int)(originalCost * multiplier));
+                shipModuleUpgrade.PurchaseCost = (int)(originalCost * multiplier);
             }
         }
         public static void Postfix(SimGameState __instance, bool refund)
@@ -309,7 +376,7 @@ namespace MechAffinity.Patches
             if (refund)
             {
                 ShipModuleUpgrade shipModuleUpgrade = __instance.DataManager.ShipUpgradeDefs.Get(__instance.CurrentUpgradeEntry.upgradeID);
-                Traverse.Create(shipModuleUpgrade).Property("PurchaseCost").SetValue(originalCost);
+                shipModuleUpgrade.PurchaseCost = originalCost;
             }
         }
     }
@@ -322,13 +389,19 @@ namespace MechAffinity.Patches
             return Main.settings.enablePilotQuirks;
         }
         
-        public static bool Prefix(SimGameState __instance, EconomyScale expenditureLevel, bool proRate, int  ___ProRateRefund, ref int __result)
+        public static void Prefix(ref bool __runOriginal, SimGameState __instance, EconomyScale expenditureLevel, bool proRate, ref int __result)
         {
+            
+            if (!__runOriginal)
+            {
+                return;
+            }
+            
             FinancesConstantsDef finances = __instance.Constants.Finances;
             int baseMaintenanceCost = __instance.GetShipBaseMaintenanceCost();
             for (int index = 0; index < __instance.ShipUpgrades.Count; ++index)
             {
-                float pilotQurikModifier = PilotQuirkManager.Instance.getArgoUpgradeCostModifier(__instance.PilotRoster.ToList(),
+                float pilotQurikModifier = PilotQuirkManager.Instance.getArgoUpgradeCostModifier(__instance.PilotRoster.rootList,
                         __instance.ShipUpgrades[index].Description.Id, true);
                 float baseCost = (float) __instance.ShipUpgrades[index].AdditionalCost * pilotQurikModifier;
                 baseMaintenanceCost += Mathf.CeilToInt(baseCost * __instance.Constants.CareerMode.ArgoMaintenanceMultiplier);
@@ -338,8 +411,8 @@ namespace MechAffinity.Patches
             for (int index = 0; index < __instance.PilotRoster.Count; ++index)
                 baseMaintenanceCost += __instance.GetMechWarriorValue(__instance.PilotRoster[index].pilotDef);
             float expenditureCostModifier = __instance.GetExpenditureCostModifier(expenditureLevel);
-            __result = Mathf.CeilToInt((float) (baseMaintenanceCost - (proRate ? ___ProRateRefund : 0)) * expenditureCostModifier);
-            return false;
+            __result = Mathf.CeilToInt((float) (baseMaintenanceCost - (proRate ? __instance.ProRateRefund : 0)) * expenditureCostModifier);
+            __runOriginal = false;
         }
     }
 
@@ -377,8 +450,14 @@ namespace MechAffinity.Patches
         {
             return Main.settings.enableMonthlyMoraleReset;
         }
-        public static bool Prefix(SimGameState __instance, int val, string sourceID)
+        public static void Prefix(ref bool __runOriginal, SimGameState __instance, int val, string sourceID)
         {
+            
+            if (!__runOriginal)
+            {
+                return;
+            }
+            
             if (sourceID == null)
                 sourceID = nameof (SimGameState);
             if (__instance.CompanyStats.ContainsStatistic("Morale"))
@@ -391,7 +470,7 @@ namespace MechAffinity.Patches
                 PilotQuirkManager.Instance.resetMorale(__instance);
             }
             __instance.RoomManager.RefreshDisplay();
-            return false;
+            __runOriginal = false;
         }
     }
     
@@ -446,8 +525,14 @@ namespace MechAffinity.Patches
         {
             return Main.settings.enablePilotQuirks;
         }
-        public static void Prefix(SimGameState __instance, SimGameEventResult result, List<object> objects)
+        public static void Prefix(ref bool __runOriginal, SimGameState __instance, SimGameEventResult result, List<object> objects)
         {
+            
+            if (!__runOriginal)
+            {
+                return;
+            }
+            
             SimGameState simulation = SceneSingletonBehavior<UnityGameInstance>.Instance.Game.Simulation;
             SimGameReport.ReportEntry log = (SimGameReport.ReportEntry) null;
             for (var i = 0; i < objects.Count; i++)
@@ -477,8 +562,11 @@ namespace MechAffinity.Patches
                     {
                         foreach (string addedTag in result.AddedTags)
                         {
-                            if (!tagSet.Contains(addedTag)) 
+                            if (!tagSet.Contains(addedTag))
+                            {
+                                PilotQuirkManager.Instance.ResetArgoCostCache();
                                 PilotQuirkManager.Instance.processTagChange(target, addedTag, true);
+                            }
                         }
                     }
 
@@ -486,8 +574,11 @@ namespace MechAffinity.Patches
                     {
                         foreach (string removedTag in result.RemovedTags)
                         {
-                            if (tagSet.Contains(removedTag)) 
+                            if (tagSet.Contains(removedTag))
+                            {
+                                PilotQuirkManager.Instance.ResetArgoCostCache();
                                 PilotQuirkManager.Instance.processTagChange(target, removedTag, false);
+                            }
                             
                         }
                     }

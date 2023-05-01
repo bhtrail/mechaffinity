@@ -1,6 +1,5 @@
 ﻿using BattleTech;
 using BattleTech.UI;
-using Harmony;
 using System.Collections.Generic;
 using System.Linq;
 using HBS;
@@ -16,13 +15,21 @@ namespace MechAffinity.Patches
             return Main.settings.enablePilotQuirks;
         }
         
-        public static bool Prefix(LanceLoadoutSlot __instance, LanceConfiguratorPanel ___LC, IMechLabDraggableItem item, ref bool __result)
+        public static void Prefix(ref bool __runOriginal, LanceLoadoutSlot __instance, IMechLabDraggableItem item, ref bool __result)
         {
+            
+            if (!__runOriginal)
+            {
+                return;
+            }
 
-            if (___LC == null || !___LC.IsSimGame) return true;
+            if (__instance.LC == null || !__instance.LC.IsSimGame)
+            {
+                return;
+            }
             if (item.ItemType == MechLabDraggableItemType.Pilot)
             {
-                List<LanceLoadoutSlot> slots = Traverse.Create(___LC).Field<LanceLoadoutSlot[]>("loadoutSlots").Value.ToList();
+                var slots = __instance.LC.loadoutSlots;
                 List<Pilot> pilotsInUse = new List<Pilot>();
                 SGBarracksRosterSlot barracksRosterSlot = item as SGBarracksRosterSlot;
                 pilotsInUse.Add(barracksRosterSlot.Pilot);
@@ -30,7 +37,7 @@ namespace MechAffinity.Patches
                 {
                     if (slot.SelectedPilot != null)
                     {
-                        Main.modLog.LogMessage($"Pilot In Slot: {slot.SelectedPilot.Pilot.Callsign}");
+                        Main.modLog.Info?.Write($"Pilot In Slot: {slot.SelectedPilot.Pilot.Callsign}");
                         pilotsInUse.Add(slot.SelectedPilot.Pilot);
                     }
                 }
@@ -43,15 +50,14 @@ namespace MechAffinity.Patches
                 QuirkRestriction restriction = PilotQuirkManager.Instance.pilotRestrictionInEffect(pilotsInUse);
                 if (restriction != null)
                 {
-                    Main.modLog.LogMessage($"preventing Pilot {barracksRosterSlot.Pilot.Callsign} from deploying: {restriction.restrictionCategory} in effect");
-                    ___LC.ReturnItem(item);
+                    Main.modLog.Info?.Write($"preventing Pilot {barracksRosterSlot.Pilot.Callsign} from deploying: {restriction.restrictionCategory} in effect");
+                    __instance.LC.ReturnItem(item);
                     __result = false;
                     GenericPopupBuilder.Create(restriction.errorTitle, restriction.errorMsg).AddFader(new UIColorRef?(LazySingletonBehavior<UIManager>.Instance.UILookAndColorConstants.PopupBackfill), 0.0f, true).Render();
-                    return false;
+                    __runOriginal = false;
                 }
             }
             
-            return true;
         }
         
     }

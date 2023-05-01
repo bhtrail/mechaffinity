@@ -2,7 +2,6 @@
 using System.Reflection;
 using BattleTech;
 using BattleTech.UI;
-using Harmony;
 
 namespace MechAffinity.Patches
 {
@@ -16,21 +15,26 @@ namespace MechAffinity.Patches
             return Main.settings.enablePilotQuirks;
         }
         
-        public static void Prefix(SGEngineeringScreen __instance)
+        public static void Prefix(ref bool __runOriginal, SGEngineeringScreen __instance)
         {
+            if (!__runOriginal)
+            {
+                return;
+            }
+            
             var sim = UnityGameInstance.BattleTechGame.Simulation;
-            ShipModuleUpgrade selectedUpgrade = (ShipModuleUpgrade) Traverse.Create(__instance).Property("SelectedUpgrade").GetValue();
+            ShipModuleUpgrade selectedUpgrade = __instance.SelectedUpgrade;
             
             originalCost = selectedUpgrade.PurchaseCost;
-            float multiplier = PilotQuirkManager.Instance.getArgoUpgradeCostModifier(sim.PilotRoster.ToList(),
+            float multiplier = PilotQuirkManager.Instance.getArgoUpgradeCostModifier(sim.PilotRoster.rootList,
                 selectedUpgrade.Description.Id, false);
-            Traverse.Create(selectedUpgrade).Property("PurchaseCost").SetValue((int)(originalCost * multiplier));
+            selectedUpgrade.PurchaseCost = (int)(originalCost * multiplier);
         }
         
         public static void Postfix(SGEngineeringScreen __instance)
         {
-            ShipModuleUpgrade selectedUpgrade = (ShipModuleUpgrade) Traverse.Create(__instance).Property("SelectedUpgrade").GetValue();
-            Traverse.Create(selectedUpgrade).Property("PurchaseCost").SetValue(originalCost);
+            ShipModuleUpgrade selectedUpgrade = __instance.SelectedUpgrade;
+            selectedUpgrade.PurchaseCost = originalCost;
         }
     }
 }
