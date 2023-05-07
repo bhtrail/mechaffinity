@@ -84,10 +84,16 @@ public class LanceConfiguratorPanel_ContinueConfirmClicked
 
     public static void Postfix(LanceConfiguratorPanel __instance)
     {
+            
+        if (Main.settings.enablePilotQuirks)
+        {
+            PilotQuirkManager.Instance.ResetEffectCache();
+        }
+            
         if (Main.settings.enablePilotAffinity)
         {
             PilotAffinityManager.Instance.ResetEffectCache();
-            List<Pilot> pilots = new();
+            List<Pilot> pilots = new List<Pilot>();
             foreach (var slot in __instance.loadoutSlots)
             {
                 if (slot.SelectedPilot != null)
@@ -96,11 +102,11 @@ public class LanceConfiguratorPanel_ContinueConfirmClicked
                 }
             }
             PilotAffinityManager.Instance.AddSharedAffinity(pilots);
-        }
 
-        if (Main.settings.enablePilotQuirks)
-        {
-            PilotQuirkManager.Instance.ResetEffectCache();
-        }
+            if (Main.settings.enablePilotQuirks)
+            {
+                PilotQuirkManager.Instance.FindLanceQuirks(pilots);
+            }
+        }            
     }
 }

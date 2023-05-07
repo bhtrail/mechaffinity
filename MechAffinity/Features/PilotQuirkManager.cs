@@ -31,6 +31,9 @@ public class PilotQuirkManager : BaseEffectManager
     private Dictionary<string, float> argoUpgradeBaseCostCache;
     private Dictionary<string, float> argoUpgradeUpkeepCostCache;
     private Dictionary<string, PilotStealChanceCacheEntry> pilotStealCache;
+    private List<LanceQuirkDef> lanceQuirks;
+
+    private List<EffectData> lanceWideEffectsCache = new List<EffectData>();
 
     public bool BlockFinanceScreenUpdate { get; set; }
 
@@ -39,12 +42,12 @@ public class PilotQuirkManager : BaseEffectManager
         get
         {
             if (_instance == null) _instance = new PilotQuirkManager();
-            if (!_instance.hasInitialized) _instance.initialize(Main.settings.quirkSettings, Main.pilotQuirks);
+            if (!_instance.hasInitialized) _instance.initialize(Main.settings.quirkSettings, Main.pilotQuirks, Main.LanceQuirks);
             return _instance;
         }
     }
 
-    public void initialize(PilotQuirkSettings pilotQuirkSettings, List<PilotQuirk> pilotQuirks)
+    public void initialize(PilotQuirkSettings pilotQuirkSettings, List<PilotQuirk> pilotQuirks, List<LanceQuirkDef> lanceQuirkDefs)
     {
         if(hasInitialized) return;
         settings = pilotQuirkSettings;
@@ -71,6 +74,17 @@ public class PilotQuirkManager : BaseEffectManager
         foreach (var restriction in settings.restrictions)
         {
             quirkRestrictions.Add(restriction.restrictionCategory, restriction);
+        }
+
+        lanceQuirks = lanceQuirkDefs;
+        foreach (LanceQuirkDef lanceQuirk in lanceQuirks)
+        {
+            foreach (JObject jObject in lanceQuirk.effectData)
+            {
+                EffectData effectData = new EffectData();
+                effectData.FromJSON(jObject.ToString());
+                lanceQuirk.effects.Add(effectData);
+            }
         }
 
         immortalityCache = new Dictionary<string, bool>();
@@ -306,6 +320,11 @@ public class PilotQuirkManager : BaseEffectManager
             }
         }
 
+            // add any lancewide effects for the player
+        if (actor.team != null && actor.team.IsLocalPlayer)
+        {
+            effects.AddRange(lanceWideEffectsCache);
+        }
     }
 
     public void applyBonuses(AbstractActor actor)
@@ -910,7 +929,7 @@ public class PilotQuirkManager : BaseEffectManager
                 restrictionsToWatch[quirk.restrictionCategory] += 1;
             }
         }
-        
+            
         // if any restrictions are breached send the first that is
         foreach (var restrictedCategory in restrictionsToWatch.Keys)
         {
@@ -924,5 +943,40 @@ public class PilotQuirkManager : BaseEffectManager
             }
         }
         return (QuirkRestriction) null;
+    }
+
+    public void FindLanceQuirks(List<Pilot> pilotsInUse)
+    {
+        lanceWideEffectsCache.Clear();
+        HashSet<string> tagsInUse = new HashSet<string>();
+        foreach (var pilot in pilotsInUse)
+        {
+            foreach (var tag in pilot.pilotDef.PilotTags.items)
+            {
+                tagsInUse.Add(tag);
+            }
+        }
+
+        foreach (var lanceQuirkDef in lanceQuirks)
+        {
+            if (lanceQuirkDef.selector == ELanceQuirkSelector.All)
+            {
+                bool ok = true;
+                foreach (var tag in lanceQuirkDef.tags)
+                {
+                    if (!tagsInUse.Contains(tag))
+                    {
+                        ok = false;
+                        break;
+                    }
+                }
+
+                if (ok)
+                {
+                    Main.modLog.Info?.Write($"Adding Lance quirk: {lanceQuirkDef.quirkName}");
+                    lanceWideEffectsCache.AddRange(lanceQuirkDef.effects);
+                }
+            }
+        }
     }
 }
