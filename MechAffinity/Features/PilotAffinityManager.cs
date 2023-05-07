@@ -397,13 +397,11 @@ public class PilotAffinityManager : BaseEffectManager
 
     private string getPrefabId(AbstractActor actor, EIdType idType)
     {
-        Mech mech = actor as Mech;
-        if (mech != null)
+        if (actor is Mech mech)
         {
             return getPrefabId(mech.MechDef, idType);
         }
-        Vehicle vehicle = actor as Vehicle;
-        if (vehicle != null)
+        if (actor is Vehicle vehicle)
         {
             return getPrefabId(vehicle.VehicleDef, idType);
         }
@@ -512,8 +510,7 @@ public class PilotAffinityManager : BaseEffectManager
     private List<string> getPossibleQuirkAffinites(AbstractActor actor)
     {
         List<string> quirks = new();
-        Mech mech = actor as Mech;
-        if (mech != null)
+        if (actor is Mech mech)
         {
             return getPossibleQuirkAffinites(mech.MechDef);
         }
@@ -1374,11 +1371,9 @@ public class PilotAffinityManager : BaseEffectManager
 
     public int getPilotDeployBonusByTag(AbstractActor actor, bool isAi)
     {
-
         Pilot pilot = actor.GetPilot();
-        Mech mech = actor as Mech;
         WeightClass weightClass = WeightClass.ASSAULT;
-        if (mech != null)
+        if (actor is Mech mech)
         {
             weightClass = mech.weightClass;
         }
