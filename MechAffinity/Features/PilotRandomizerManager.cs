@@ -17,24 +17,20 @@ static class ExtensionsClass
         {
             n--;
             int k = rng.Next(n + 1);
-            T value = list[k];
-            list[k] = list[n];
-            list[n] = value;
+            (list[n], list[k]) = (list[k], list[n]);
         }
     }
 }
 
 public class PilotRandomizerManager : BaseEffectManager
 {
-
     private static PilotRandomizerManager _instance;
-    private static readonly Random rng = new();
 
     public static PilotRandomizerManager Instance
     {
         get
         {
-            if (_instance == null) _instance = new PilotRandomizerManager();
+            _instance ??= new PilotRandomizerManager();
             return _instance;
         }
     }
@@ -144,7 +140,7 @@ public class PilotRandomizerManager : BaseEffectManager
                                     isAllowed = false;
                                     break;
                                 }
-                                
+
                                 usedRestrictions.Add(restriction.restrictionId);
 
                                 if (!restrictions.ContainsKey(restriction.tags[0]))
@@ -158,7 +154,7 @@ public class PilotRandomizerManager : BaseEffectManager
                                         restrictions.Add(restrictionTag, counter);
                                     }
                                 }
-                                
+
                                 if (restrictions[tag].currentCount < restrictions[tag].restriction.limit)
                                 {
                                     tagsToIncrement.Add(tag);
@@ -169,7 +165,7 @@ public class PilotRandomizerManager : BaseEffectManager
                                     isAllowed = false;
                                     break;
                                 }
-                                
+
                             }
                         }
 
@@ -177,15 +173,25 @@ public class PilotRandomizerManager : BaseEffectManager
 
                     }
 
+                    if (Main.settings.enablePilotManagement)
+                    {
+                        if (!PilotManagementManager.Instance.IsPilotAvailable(value, simGameState.CurSystem,
+                                simGameState, true, true, out string rejectMsg))
+                        {
+                            isAllowed = false;
+                            Main.modLog.Debug?.Write($"Rejecting pilot: {value.Description.Callsign}, {rejectMsg}");
+                        }
+                    }
+
                     // pilot isn't allowed, move on to the next
                     if (!isAllowed) continue;
-                    
+
                     // now increment all the tag restrictions this pilot has
                     foreach (var tag in tagsToIncrement)
                     {
                         restrictions[tag].currentCount += 1;
                     }
-                    
+
                     Main.modLog.Info?.Write($"Adding Random Ronin {value.Description.Id}, to roster");
                     newPilots.Add(value);
                     count++;
@@ -199,10 +205,9 @@ public class PilotRandomizerManager : BaseEffectManager
             if (Main.pilotSelectSettings.ProceduralPilots > 0)
             {
                 Main.modLog.Info?.Write($"Generating {Main.pilotSelectSettings.ProceduralPilots} proc pilots");
-                List<PilotDef> list3;
                 List<PilotDef> collection =
                     simGameState.PilotGenerator.GeneratePilots(Main.pilotSelectSettings.ProceduralPilots, 1, 0f,
-                        out list3);
+                        out List<PilotDef> list3);
                 newPilots.AddRange(collection);
             }
 

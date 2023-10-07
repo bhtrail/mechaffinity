@@ -5,6 +5,7 @@ using Newtonsoft.Json;
 using MechAffinity.Data;
 using System.Reflection;
 using BattleTech;
+using MechAffinity.Data.PilotManagement;
 using Newtonsoft.Json.Linq;
 
 namespace MechAffinity;
@@ -24,7 +25,8 @@ public class Main
     internal static readonly string LanceQuirkDefTypeName = "LanceQuirkDef";
     internal static List<AffinityDef> affinityDefs = new();
     internal static List<PilotQuirk> pilotQuirks = new();
-    internal static List<LanceQuirkDef> LanceQuirks = new List<LanceQuirkDef>();
+    internal static List<LanceQuirkDef> LanceQuirks = new();
+    internal static List<PilotRequirementsDef> PilotRequirementsDefs = new();
 
     public static void FinishedLoading(List<string> loadOrder, Dictionary<string, Dictionary<string, VersionManifestEntry>> customResources)
     {
