@@ -49,7 +49,7 @@ public class PilotQuirkManager : BaseEffectManager
 
     public void initialize(PilotQuirkSettings pilotQuirkSettings, List<PilotQuirk> pilotQuirks, List<LanceQuirkDef> lanceQuirkDefs)
     {
-        if(hasInitialized) return;
+        if (hasInitialized) return;
         settings = pilotQuirkSettings;
         UidManager.reset();
         moraleModInstanced = true;
@@ -96,11 +96,11 @@ public class PilotQuirkManager : BaseEffectManager
         pilotStealCache = new Dictionary<string, PilotStealChanceCacheEntry>();
         BlockFinanceScreenUpdate = false;
     }
-    
+
     public void setCompanyStats(StatCollection stats)
     {
         companyStats = stats;
-        
+
         if (!companyStats.ContainsStatistic(PqMechSkillTracker))
         {
             companyStats.AddStatistic<float>(PqMechSkillTracker, 0.0f);
@@ -139,27 +139,16 @@ public class PilotQuirkManager : BaseEffectManager
 
     private List<string> getPooledQuirks(QuirkPool pool)
     {
-        List<string> choosenQuirks = new();
-        Random random = new();
-        while (choosenQuirks.Count < pool.quirksToPick)
-        {
-            string quirk = pool.quirksAvailable[random.Next(pool.quirksAvailable.Count)];
-            if (!choosenQuirks.Contains(quirk))
-            {
-                choosenQuirks.Add(quirk);
-            }
-        }
-
-        return choosenQuirks;
+        return pool.GetQuirks();
     }
-    
+
     private List<PilotQuirk> getQuirks(PilotDef pilotDef, bool usePools = false, bool restrictedOnly = false)
     {
-        List<PilotQuirk> pilotQuirks = new();
+        List<PilotQuirk> pilotQuirks = new List<PilotQuirk>();
         if (pilotDef != null)
         {
             IEnumerable<string> tags = pilotDef.PilotTags;
-            List<string> usedQuirks = new();
+            List<string> usedQuirks = new List<string>();
             foreach (string tag in tags)
             {
                 //Main.modLog.Info?.Write($"Processing tag: {tag}");
@@ -179,7 +168,7 @@ public class PilotQuirkManager : BaseEffectManager
                         pilotQuirks.Add(quirk);
                         usedQuirks.Add(tag);
                     }
-                    
+
                 }
             }
 
@@ -296,7 +285,7 @@ public class PilotQuirkManager : BaseEffectManager
 
         return false;
     }
-    
+
     private bool GetQuirk(string tag, out PilotQuirk quirk)
     {
         quirk = null;
@@ -320,7 +309,7 @@ public class PilotQuirkManager : BaseEffectManager
             }
         }
 
-            // add any lancewide effects for the player
+        // add any lancewide effects for the player
         if (actor.team != null && actor.team.IsLocalPlayer)
         {
             effects.AddRange(lanceWideEffectsCache);
@@ -360,9 +349,9 @@ public class PilotQuirkManager : BaseEffectManager
         List<PilotQuirk> pilotQuirks = getQuirks(pilotDef);
         foreach (PilotQuirk quirk in pilotQuirks)
         {
-            foreach(QuirkEffect effect in quirk.quirkEffects)
+            foreach (QuirkEffect effect in quirk.quirkEffects)
             {
-                if(effect.type == EQuirkEffectType.PilotCostFactor)
+                if (effect.type == EQuirkEffectType.PilotCostFactor)
                 {
                     ret += effect.modifier;
                     flatCost += Mathf.FloorToInt(effect.secondaryModifier);
@@ -379,7 +368,7 @@ public class PilotQuirkManager : BaseEffectManager
         int MoraleMod = companyStats.GetValue<int>(PqMoraleModifierTracker);
         bool updateMoraleMod = cStat == Morale;
         Main.modLog.Info?.Write($"possible update to {cStat}, current {cValue}, tracker: {trackerValue}");
-        int trackerInt = (int) trackerValue;
+        int trackerInt = (int)trackerValue;
         trackerValue -= trackerInt;
         if (trackerInt != 0)
         {
@@ -429,7 +418,7 @@ public class PilotQuirkManager : BaseEffectManager
                         Main.modLog.Info?.Write($"removing health to pilot: {def.Description.Callsign}");
                         def.Health -= (int)effect.modifier;
                     }
-                    
+
                 }
             }
         }
@@ -475,7 +464,7 @@ public class PilotQuirkManager : BaseEffectManager
                 }
             }
         }
-        
+
     }
 
     public void proccessPilot(PilotDef def, bool isNew)
@@ -490,7 +479,7 @@ public class PilotQuirkManager : BaseEffectManager
                 int currentMorale = companyStats.GetValue<int>(PqMoraleModifierTracker);
                 bool updateMoraleMod = false;
                 float modChange = 0.0f;
-                
+
                 List<PilotQuirk> pQuirks = getQuirks(def);
                 foreach (PilotQuirk quirk in pQuirks)
                 {
@@ -521,8 +510,8 @@ public class PilotQuirkManager : BaseEffectManager
         bool updateMech = false;
         bool updateMed = false;
         bool updateMorale = false;
-        
-        
+
+
         Main.modLog.Info?.Write($"Tracker Stat: {PqMechSkillTracker}, value: {currentMechTek}");
         Main.modLog.Info?.Write($"Tracker Stat: {PqMedSkillTracker}, value: {currentMedTek}");
         Main.modLog.Info?.Write($"Tracker Stat: {PqMoraleTracker}, value: {currentMoraleTek}");
@@ -586,12 +575,12 @@ public class PilotQuirkManager : BaseEffectManager
         {
             updateStat(PqMoraleTracker, Morale, currentMoraleTek);
         }
-        
+
         if (!def.PilotTags.Contains(PqMarkedTag) && isNew)
         {
             def.PilotTags.Add(PqMarkedTag);
         }
-        
+
     }
 
     public void processTagChange(Pilot pilot, string tag, bool isNew)
@@ -606,7 +595,7 @@ public class PilotQuirkManager : BaseEffectManager
         bool updateMed = false;
         bool updateMorale = false;
         Main.modLog.Info?.Write($"Processing Quirk Tag change on {pilot.Callsign} - {tag}: {isNew}");
-        
+
         Main.modLog.Info?.Write($"Tracker Stat: {PqMechSkillTracker}, value: {currentMechTek}");
         Main.modLog.Info?.Write($"Tracker Stat: {PqMedSkillTracker}, value: {currentMedTek}");
         Main.modLog.Info?.Write($"Tracker Stat: {PqMoraleTracker}, value: {currentMoraleTek}");
@@ -668,7 +657,7 @@ public class PilotQuirkManager : BaseEffectManager
                     Main.modLog.Info?.Write($"removing health to pilot: {pilot.pilotDef.Description.Callsign}");
                     pilot.pilotDef.Health -= (int)effect.modifier;
                 }
-                    
+
             }
         }
 
@@ -713,11 +702,11 @@ public class PilotQuirkManager : BaseEffectManager
                     }
                 }
             }
-            
+
             pilotStealCache.Add(pilot.pilotDef.Description.Id, cacheEntry);
         }
-        
-        
+
+
         Random random = new();
         int roll = random.Next(0, 100);
         if (roll < cacheEntry.StealChance)
@@ -741,7 +730,7 @@ public class PilotQuirkManager : BaseEffectManager
         {
             return immortalityCache[pilotDef.Description.Id];
         }
-        
+
         List<PilotQuirk> pilotQuirks = getQuirks(pilotDef);
         foreach (PilotQuirk quirk in pilotQuirks)
         {
@@ -757,7 +746,7 @@ public class PilotQuirkManager : BaseEffectManager
 
         immortalityCache.Add(pilotDef.Description.Id, false);
         return false;
-        
+
     }
 
     public void additionalSalvage(PilotDef pilotDef, ref int additionalSalvage, ref int additionalSalvagePicks)
@@ -775,9 +764,9 @@ public class PilotQuirkManager : BaseEffectManager
                 }
             }
         }
-        
+
     }
-    
+
     public void additionalCbills(PilotDef pilotDef, ref int flatPayout, ref float percentagePayout)
     {
         List<PilotQuirk> pilotQuirks = getQuirks(pilotDef);
@@ -793,7 +782,7 @@ public class PilotQuirkManager : BaseEffectManager
                 }
             }
         }
-        
+
     }
 
     public bool isPilotImmortal(PilotDef pilotDef)
@@ -818,7 +807,7 @@ public class PilotQuirkManager : BaseEffectManager
         if (!upkeep && argoUpgradeBaseCostCache.ContainsKey(upgradeId)) return argoUpgradeBaseCostCache[upgradeId];
 
 
-            float ret = 1.0f;
+        float ret = 1.0f;
         EQuirkEffectType type = EQuirkEffectType.ArgoUpgradeFactor;
         if (upkeep)
         {
@@ -852,7 +841,7 @@ public class PilotQuirkManager : BaseEffectManager
                                 }
                             }
 
-                            
+
                         }
                     }
                 }
@@ -883,7 +872,7 @@ public class PilotQuirkManager : BaseEffectManager
             setCompanyStats(sim.CompanyStats);
             forceMoraleInstanced();
         }
-        
+
         int MoraleModifier = companyStats.GetValue<int>(PqMoraleModifierTracker);
         Main.modLog.Info?.Write($"Reseting Morale, baseline {MoraleModifier}");
         if (sim.CurDropship == DropshipType.Argo)
@@ -929,7 +918,7 @@ public class PilotQuirkManager : BaseEffectManager
                 restrictionsToWatch[quirk.restrictionCategory] += 1;
             }
         }
-            
+
         // if any restrictions are breached send the first that is
         foreach (var restrictedCategory in restrictionsToWatch.Keys)
         {
@@ -942,7 +931,7 @@ public class PilotQuirkManager : BaseEffectManager
                 }
             }
         }
-        return (QuirkRestriction) null;
+        return (QuirkRestriction)null;
     }
 
     public void FindLanceQuirks(List<Pilot> pilotsInUse)
